@@ -1,3 +1,5 @@
+*.pem
+
 # Binaries for programs and plugins
 
 _.exe
