@@ -1,0 +1,31 @@
+# Binaries for programs and plugins
+
+_.exe
+_.exe~
+_.dll
+_.so
+\*.dylib
+
+# Test binary, built with `go test -c`
+
+\*.test
+
+# Code coverage profiles and other test artifacts
+
+_.out
+coverage._
+\*.coverprofile
+profile.cov
+
+# Dependency directories (remove the comment below to include it)
+
+# vendor/
+
+# Go workspace file
+
+go.work
+go.work.sum
+
+# env file
+
+.env
