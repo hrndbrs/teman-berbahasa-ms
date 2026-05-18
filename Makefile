@@ -2,6 +2,7 @@ BINARY     := server
 CMD        := ./cmd/server
 MIGRATIONS := internal/db/migrations
 SQLC_DIR   := internal/db
+MIGRATE    := go run ./cmd/migrate
 
 DATABASE_URL ?= $(shell grep -E '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2-)
 
@@ -41,14 +42,14 @@ tidy:
 # ── Database ─────────────────────────────────────────────────────────────────
 
 migrate-up:
-	migrate -path $(MIGRATIONS) -database "$(DATABASE_URL)" up
+	$(MIGRATE) -path $(MIGRATIONS) -database "$(DATABASE_URL)" up
 
 migrate-down:
-	migrate -path $(MIGRATIONS) -database "$(DATABASE_URL)" down
+	$(MIGRATE) -path $(MIGRATIONS) -database "$(DATABASE_URL)" down
 
 migrate-create:
 	@read -p "Migration name: " name; \
-	migrate create -ext sql -dir $(MIGRATIONS) -seq $$name
+	go run github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1 create -ext sql -dir $(MIGRATIONS) -seq $$name
 
 # ── Code Generation ──────────────────────────────────────────────────────────
 
