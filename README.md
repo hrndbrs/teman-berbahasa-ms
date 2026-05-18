@@ -54,18 +54,18 @@ Each module has `handler.go`, `service.go`, `repository.go` and wires itself via
 
 ## Stack
 
-| Concern | Library |
-|---|---|
-| HTTP router | `go-chi/chi/v5` |
-| PostgreSQL | `jackc/pgx/v5` + `pgxpool` |
-| Query generation | `sqlc-dev/sqlc` — no ORM, raw SQL |
-| Migrations | `golang-migrate/migrate/v4` |
-| JWT | `golang-jwt/jwt/v5` — RS256 |
+| Concern          | Library                                |
+| ---------------- | -------------------------------------- |
+| HTTP router      | `go-chi/chi/v5`                        |
+| PostgreSQL       | `jackc/pgx/v5` + `pgxpool`             |
+| Query generation | `sqlc-dev/sqlc` — no ORM, raw SQL      |
+| Migrations       | `golang-migrate/migrate/v4`            |
+| JWT              | `golang-jwt/jwt/v5` — RS256            |
 | Password hashing | `golang.org/x/crypto/bcrypt` — cost 12 |
-| Primary keys | `google/uuid` — UUID v7 (time-ordered) |
-| Validation | `go-playground/validator/v10` |
-| Logging | `log/slog` — structured JSON |
-| Error tracking | `getsentry/sentry-go` |
+| Primary keys     | `google/uuid` — UUID v7 (time-ordered) |
+| Validation       | `go-playground/validator/v10`          |
+| Logging          | `log/slog` — structured JSON           |
+| Error tracking   | `getsentry/sentry-go`                  |
 
 ---
 

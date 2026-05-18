@@ -56,18 +56,18 @@ No ORM. Raw SQL via sqlc. No Redis — async jobs via in-process goroutine worke
 
 ## Modules
 
-| Module              | Endpoints prefix               | Purpose                                          |
-| ------------------- | ------------------------------ | ------------------------------------------------ |
-| Auth                | `/auth/*`                      | Login, logout, token refresh, password reset     |
-| User Management     | `/users`                       | CRUD for admin/teacher/staff accounts            |
-| Student Management  | `/students`                    | CRUD for student records                         |
-| Course Management   | `/courses`                     | Course catalog CRUD + archive                    |
-| Batch Management    | `/batches`                     | Batches scoped to a course, status transitions   |
-| Enrollment          | `/enrollments`                 | Enroll students, payment tracking, final grade   |
-| Schedule Management | `/batches/:id/schedules`, etc. | Recurring timetable slots + one-off overrides    |
-| Event Management    | `/events`                      | Institution-wide calendar events                 |
-| Form Management     | `/forms`, `/form-questions`    | Dynamic form builder with full lifecycle         |
-| Form Response       | `/forms/:id/responses`         | Accept submissions, bulk insert answers          |
+| Module              | Endpoints prefix               | Purpose                                        |
+| ------------------- | ------------------------------ | ---------------------------------------------- |
+| Auth                | `/auth/*`                      | Login, logout, token refresh, password reset   |
+| User Management     | `/users`                       | CRUD for admin/teacher/staff accounts          |
+| Student Management  | `/students`                    | CRUD for student records                       |
+| Course Management   | `/courses`                     | Course catalog CRUD + archive                  |
+| Batch Management    | `/batches`                     | Batches scoped to a course, status transitions |
+| Enrollment          | `/enrollments`                 | Enroll students, payment tracking, final grade |
+| Schedule Management | `/batches/:id/schedules`, etc. | Recurring timetable slots + one-off overrides  |
+| Event Management    | `/events`                      | Institution-wide calendar events               |
+| Form Management     | `/forms`, `/form-questions`    | Dynamic form builder with full lifecycle       |
+| Form Response       | `/forms/:id/responses`         | Accept submissions, bulk insert answers        |
 
 ## API Conventions
 
@@ -101,55 +101,60 @@ Standard codes: `BAD_REQUEST` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), `N
 
 ### Soft Deletes & Audit
 
-| Table                | Strategy                                              |
-| -------------------- | ----------------------------------------------------- |
-| `users`              | `status = inactive` — never hard delete               |
-| `students`           | `status = inactive` — never hard delete               |
-| `forms`              | `deleted_at TIMESTAMPTZ` + `status = deleted`         |
-| `enrollments`        | `status = dropped` — preserved for audit              |
-| `courses`            | `status = archived`                                   |
-| `refresh_tokens`     | Hard delete on logout; cron purges expired rows       |
-| `schedule_overrides` | Hard delete allowed                                   |
+| Table                | Strategy                                        |
+| -------------------- | ----------------------------------------------- |
+| `users`              | `status = inactive` — never hard delete         |
+| `students`           | `status = inactive` — never hard delete         |
+| `forms`              | `deleted_at TIMESTAMPTZ` + `status = deleted`   |
+| `enrollments`        | `status = dropped` — preserved for audit        |
+| `courses`            | `status = archived`                             |
+| `refresh_tokens`     | Hard delete on logout; cron purges expired rows |
+| `schedule_overrides` | Hard delete allowed                             |
 
 ### Critical Unique Constraints
 
-| Constraint                                  | On table             |
-| ------------------------------------------- | -------------------- |
-| `email`                                     | `users`, `students`  |
-| `(course_id, batch_code)`                   | `batches`            |
-| `(student_id, batch_id)`                    | `enrollments`        |
-| `(schedule_id, original_date)`              | `schedule_overrides` |
-| `(form_id, respondent_id)` (partial)        | `form_responses`     |
-| `course_code`                               | `courses`            |
+| Constraint                           | On table             |
+| ------------------------------------ | -------------------- |
+| `email`                              | `users`, `students`  |
+| `(course_id, batch_code)`            | `batches`            |
+| `(student_id, batch_id)`             | `enrollments`        |
+| `(schedule_id, original_date)`       | `schedule_overrides` |
+| `(form_id, respondent_id)` (partial) | `form_responses`     |
+| `course_code`                        | `courses`            |
 
 Catch `pgerrcode.UniqueViolation` → return 409.
 
 ## Business Rules
 
 ### Auth
+
 - bcrypt cost 12. JWT signed with RS256. Access token TTL: 15 min. Refresh token TTL: 7 days.
 - Refresh token stored as `SHA-256(raw_token)` — raw token never persists in DB.
 - Refresh tokens rotated on every use; reusing rotated token → 401.
 - Account lock after 10 failed login attempts; reset on success.
 
 ### Batches
+
 - `instructor_user_id` must reference a `users.role = teacher` — validate in service before insert.
 - Status transitions: `upcoming → ongoing → completed` only. No reversals.
 - Cannot delete batch with active enrollments.
 
 ### Enrollments
+
 - `course_id` server-derived from `batch.course_id` — never trust client-provided value.
 - Cannot enroll into a `completed` batch.
 - Capacity check: `COUNT(enrollments WHERE status != 'dropped') < course.max_capacity`.
 - Race condition: use `pg_advisory_xact_lock(batch_id)` inside serializable transaction. Catch `pgerrcode.SerializationFailure` (40001) and retry once.
 
 ### Schedules / Overrides
+
 - Effective instructor resolution (3-level fallback): override → slot → batch default.
 - `original_date` must fall within `schedule.effective_from` / `effective_until`.
 - `cancellation` override: `new_date`, `new_start_time`, `new_end_time` must be nil.
 - `reschedule` override: `new_date` required.
 
 ### Forms
+
 - Cannot publish with zero questions.
 - Questions immutable once form is `published` — return 409 on edit attempt.
 - `POST /forms/:id/publish` and `POST /forms/:id/close` are idempotent — return 200 if already in target state.
@@ -157,12 +162,14 @@ Catch `pgerrcode.UniqueViolation` → return 409.
 - Partial unique index on `(form_id, respondent_id)` prevents duplicate identified submissions.
 
 ### Form Submission
+
 - Validate all `is_required = true` questions answered.
 - Validate all `answer.question_id` belong to the form before starting transaction.
 - Single transaction: upsert respondent → insert response → bulk insert answers via `unnest`.
 - After commit: dispatch `FormResponseSubmitted` event to worker channel (non-blocking).
 
 ### Courses
+
 - Cannot archive a course with `ongoing` batches — count check before update.
 
 ## State Machines
@@ -180,19 +187,19 @@ Implement as explicit `ValidateBatchTransition` / `ValidateFormTransition` funct
 
 ## Roles & Permissions
 
-| Action                     | Admin | Teacher              | Staff |
-| -------------------------- | :---: | :------------------: | :---: |
-| Manage users               | ✅    | ❌                   | ❌    |
-| Manage students            | ✅    | ❌                   | ✅    |
-| View students              | ✅    | ✅                   | ✅    |
-| Manage courses             | ✅    | ❌                   | ❌    |
-| Manage batches             | ✅    | ❌                   | ✅    |
-| Manage enrollments         | ✅    | ❌                   | ✅    |
-| Manage schedules           | ✅    | ❌                   | ✅    |
-| Create schedule overrides  | ✅    | ✅ (own batches only) | ✅    |
-| Create/edit/delete forms   | ✅    | ❌                   | ✅    |
-| View form responses        | ✅    | ❌                   | ✅    |
-| Submit form responses      | ✅    | ✅                   | ✅    |
+| Action                    | Admin |        Teacher        | Staff |
+| ------------------------- | :---: | :-------------------: | :---: |
+| Manage users              |  ✅   |          ❌           |  ❌   |
+| Manage students           |  ✅   |          ❌           |  ✅   |
+| View students             |  ✅   |          ✅           |  ✅   |
+| Manage courses            |  ✅   |          ❌           |  ❌   |
+| Manage batches            |  ✅   |          ❌           |  ✅   |
+| Manage enrollments        |  ✅   |          ❌           |  ✅   |
+| Manage schedules          |  ✅   |          ❌           |  ✅   |
+| Create schedule overrides |  ✅   | ✅ (own batches only) |  ✅   |
+| Create/edit/delete forms  |  ✅   |          ❌           |  ✅   |
+| View form responses       |  ✅   |          ❌           |  ✅   |
+| Submit form responses     |  ✅   |          ✅           |  ✅   |
 
 Role enforcement in middleware, not handler logic.  
 `GET /users/:id`: own record only unless admin.  
