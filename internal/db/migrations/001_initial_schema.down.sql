@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS form_answers;
+DROP TABLE IF EXISTS form_responses;
+DROP TABLE IF EXISTS respondents;
+DROP TABLE IF EXISTS form_questions;
+DROP TABLE IF EXISTS forms;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS schedule_overrides;
+DROP TABLE IF EXISTS schedules;
+DROP TABLE IF EXISTS enrollments;
+DROP TABLE IF EXISTS batches;
+DROP TABLE IF EXISTS courses;
+DROP TABLE IF EXISTS students;
+DROP TABLE IF EXISTS password_reset_tokens;
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS users;
