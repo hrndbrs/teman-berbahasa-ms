@@ -13,6 +13,9 @@ type Config struct {
 	SentryDSN          string
 	CORSAllowedOrigins []string
 	Port               string
+	ResendAPIKey       string
+	ResendFromEmail    string
+	FrontendURL        string
 }
 
 func Load() (*Config, error) {
@@ -22,6 +25,9 @@ func Load() (*Config, error) {
 		JWTPublicKeyPath:  os.Getenv("JWT_PUBLIC_KEY_PATH"),
 		SentryDSN:         os.Getenv("SENTRY_DSN"),
 		Port:              os.Getenv("PORT"),
+		ResendAPIKey:      os.Getenv("RESEND_API_KEY"),
+		ResendFromEmail:   os.Getenv("RESEND_FROM_EMAIL"),
+		FrontendURL:       os.Getenv("FRONTEND_URL"),
 	}
 
 	if cfg.Port == "" {
@@ -46,6 +52,15 @@ func Load() (*Config, error) {
 	}
 	if len(cfg.CORSAllowedOrigins) == 0 {
 		missing = append(missing, "CORS_ALLOWED_ORIGINS")
+	}
+	if cfg.ResendAPIKey == "" {
+		missing = append(missing, "RESEND_API_KEY")
+	}
+	if cfg.ResendFromEmail == "" {
+		missing = append(missing, "RESEND_FROM_EMAIL")
+	}
+	if cfg.FrontendURL == "" {
+		missing = append(missing, "FRONTEND_URL")
 	}
 
 	if len(missing) > 0 {

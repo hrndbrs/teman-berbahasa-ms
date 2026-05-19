@@ -15,6 +15,9 @@ func setValidEnv(t *testing.T) {
 	t.Setenv("JWT_PRIVATE_KEY_PATH", "/keys/private.pem")
 	t.Setenv("JWT_PUBLIC_KEY_PATH", "/keys/public.pem")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+	t.Setenv("RESEND_API_KEY", "re_test_key")
+	t.Setenv("RESEND_FROM_EMAIL", "noreply@school.com")
+	t.Setenv("FRONTEND_URL", "https://app.school.com")
 }
 
 func TestLoad_AllPresent(t *testing.T) {
@@ -80,4 +83,31 @@ func TestLoad_MissingCORSOrigins(t *testing.T) {
 	_, err := config.Load()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "CORS_ALLOWED_ORIGINS")
+}
+
+func TestLoad_MissingResendAPIKey(t *testing.T) {
+	setValidEnv(t)
+	t.Setenv("RESEND_API_KEY", "")
+
+	_, err := config.Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "RESEND_API_KEY")
+}
+
+func TestLoad_MissingResendFromEmail(t *testing.T) {
+	setValidEnv(t)
+	t.Setenv("RESEND_FROM_EMAIL", "")
+
+	_, err := config.Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "RESEND_FROM_EMAIL")
+}
+
+func TestLoad_MissingFrontendURL(t *testing.T) {
+	setValidEnv(t)
+	t.Setenv("FRONTEND_URL", "")
+
+	_, err := config.Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FRONTEND_URL")
 }
