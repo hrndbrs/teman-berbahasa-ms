@@ -19,6 +19,7 @@ import (
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/auth"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/health"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/user"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/token"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/worker"
 )
@@ -62,6 +63,11 @@ func main() {
 	authSvc := auth.NewService(tokenManager, authRepo, emailSender)
 	authHandler := auth.NewHandler(authSvc)
 
+	userRepo := user.NewRepository(pool)
+	userEmailSender := user.NewEmailSender(cfg.ResendAPIKey, cfg.ResendFromEmail, cfg.FrontendURL)
+	userSvc := user.NewService(userRepo, userEmailSender)
+	userHandler := user.NewHandler(userSvc)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
@@ -73,6 +79,7 @@ func main() {
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Auth(tokenManager))
+		userHandler.Register(r)
 		// future modules go here
 	})
 
