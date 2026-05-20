@@ -56,6 +56,11 @@ tags:
       CRUD for student records.
       All endpoints require a valid JWT. Create/update restricted to `admin` and `staff` roles.
       All authenticated roles can view students.
+  - name: Courses
+    description: |
+      Course catalog CRUD and archive.
+      All endpoints require a valid JWT. Create/update/archive restricted to `admin` role.
+      All authenticated roles can view courses.
 
 paths:
   /health:
@@ -615,6 +620,195 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /courses:
+    get:
+      tags: [Courses]
+      operationId: listCourses
+      summary: List courses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived]
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated list of courses with stats.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CourseWithStats"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Courses]
+      operationId: createCourse
+      summary: Create a course
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCourseRequest"
+      responses:
+        "201":
+          description: Course created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /courses/{id}:
+    get:
+      tags: [Courses]
+      operationId: getCourse
+      summary: Get a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Course with stats.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseWithStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags: [Courses]
+      operationId: updateCourse
+      summary: Update a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCourseRequest"
+      responses:
+        "200":
+          description: Updated course.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /courses/{id}/archive:
+    patch:
+      tags: [Courses]
+      operationId: archiveCourse
+      summary: Archive a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Course archived.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: archived
+                  updated_at:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1021,6 +1215,105 @@ components:
         status:
           type: string
           enum: [active, inactive, graduated]
+
+    # ── Course schemas ────────────────────────────────────────────────────────
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        course_name:
+          type: string
+        course_code:
+          type: string
+        description:
+          type: string
+          nullable: true
+        subject:
+          type: string
+          nullable: true
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+          nullable: true
+        duration_weeks:
+          type: integer
+          nullable: true
+        price:
+          type: string
+          example: "480000.00"
+          nullable: true
+        max_capacity:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [active, archived]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CourseWithStats:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          properties:
+            batch_count:
+              type: integer
+            ongoing_batch_count:
+              type: integer
+            enrolled_count:
+              type: integer
+
+    CreateCourseRequest:
+      type: object
+      required: [course_name, course_code]
+      properties:
+        course_name:
+          type: string
+        course_code:
+          type: string
+        description:
+          type: string
+        subject:
+          type: string
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        duration_weeks:
+          type: integer
+        price:
+          type: string
+          example: "480000.00"
+        max_capacity:
+          type: integer
+
+    UpdateCourseRequest:
+      type: object
+      properties:
+        course_name:
+          type: string
+        course_code:
+          type: string
+        description:
+          type: string
+        subject:
+          type: string
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        duration_weeks:
+          type: integer
+        price:
+          type: string
+          example: "480000.00"
+        max_capacity:
+          type: integer
 
     MessageResponse:
       type: object

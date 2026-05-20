@@ -18,6 +18,7 @@ import (
 	interndb "github.com/hrndbrs/teman-berbahasa-ms/internal/db"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/auth"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/course"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/health"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/student"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/user"
@@ -73,6 +74,10 @@ func main() {
 	studentSvc := student.NewService(studentRepo)
 	studentHandler := student.NewHandler(studentSvc)
 
+	courseRepo := course.NewRepository(pool)
+	courseSvc := course.NewService(courseRepo)
+	courseHandler := course.NewHandler(courseSvc)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
@@ -91,6 +96,7 @@ func main() {
 		authHandler.RegisterProtected(r)
 		userHandler.Register(r)
 		studentHandler.Register(r)
+		courseHandler.Register(r)
 		// future modules go here
 	})
 
