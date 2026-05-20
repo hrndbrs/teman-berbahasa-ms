@@ -557,7 +557,10 @@ Sets `status = inactive`. No body.
       "max_capacity": 20,
       "status": "active",
       "created_at": "2025-01-01T00:00:00Z",
-      "updated_at": "2025-01-01T00:00:00Z"
+      "updated_at": "2025-01-01T00:00:00Z",
+      "batch_count": 3,
+      "ongoing_batch_count": 1,
+      "enrolled_count": 14
     }
   ],
   "pagination": {
@@ -569,7 +572,36 @@ Sets `status = inactive`. No body.
 }
 ```
 
-> `price` is returned as a string to avoid floating-point precision loss in JSON.
+> `price` is returned as a string to avoid floating-point precision loss in JSON.  
+> `batch_count` counts all batches for this course. `ongoing_batch_count` counts only `ongoing` batches. `enrolled_count` counts all non-dropped enrollments across all batches.
+
+---
+
+### `GET /courses/:id`
+
+**Response `200`:** Course object with stats (same shape as a single item from the list).
+
+```json
+{
+  "id": "019687a2-0002-7000-8000-000000000001",
+  "course_name": "Matematika Dasar",
+  "course_code": "MTK01",
+  "description": "Kursus matematika untuk siswa SD kelas 4-6.",
+  "subject": "Mathematics",
+  "level": "beginner",
+  "duration_weeks": 12,
+  "price": "750000.00",
+  "max_capacity": 20,
+  "status": "active",
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T00:00:00Z",
+  "batch_count": 3,
+  "ongoing_batch_count": 1,
+  "enrolled_count": 14
+}
+```
+
+**Error `404`** if not found.
 
 ---
 

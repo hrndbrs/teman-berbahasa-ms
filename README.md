@@ -118,11 +118,17 @@ Three roles: `admin`, `teacher`, `staff`. Role checks live in middleware — han
 
 ```env
 DATABASE_URL=postgres://user:pass@localhost:5432/teman_berbahasa?sslmode=disable
-JWT_PRIVATE_KEY_PATH=./keys/private.pem
-JWT_PUBLIC_KEY_PATH=./keys/public.pem
-SENTRY_DSN=
+JWT_PRIVATE_KEY_PATH=./private.pem
+JWT_PUBLIC_KEY_PATH=./public.pem
 CORS_ALLOWED_ORIGINS=http://localhost:3000
+RESEND_API_KEY=re_xxxxxxxxxxxx
+RESEND_FROM_EMAIL=noreply@yourdomain.com
+FRONTEND_URL=http://localhost:3000
+PORT=8080
+SENTRY_DSN=
 ```
+
+`DATABASE_URL`, `JWT_PRIVATE_KEY_PATH`, `JWT_PUBLIC_KEY_PATH`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and `FRONTEND_URL` are required — missing any causes immediate startup failure. `PORT` defaults to `8080`. `SENTRY_DSN` is optional.
 
 Missing required vars cause immediate startup failure — nothing is silently defaulted.
 
