@@ -73,7 +73,7 @@ func (q *Queries) CountOngoingBatchesByCourse(ctx context.Context, courseID uuid
 }
 
 const createCourse = `-- name: CreateCourse :one
-INSERT INTO courses (id, course_name, course_code, description, subject, level, duration_weeks, price, max_capacity)
+INSERT INTO courses (id, course_name, course_code, description, subject, level, session_count, price, max_capacity)
 VALUES (
   $1,
   $2,
@@ -85,7 +85,7 @@ VALUES (
   $8,
   $9
 )
-RETURNING id, course_name, course_code, description, subject, level, duration_weeks, price, max_capacity, status, created_at, updated_at
+RETURNING id, course_name, course_code, description, subject, level, session_count, price, max_capacity, status, created_at, updated_at
 `
 
 type CreateCourseParams struct {
@@ -95,7 +95,7 @@ type CreateCourseParams struct {
 	Description   *string        `json:"description"`
 	Subject       *string        `json:"subject"`
 	Level         *string        `json:"level"`
-	DurationWeeks *int32         `json:"duration_weeks"`
+	SessionCount *int32         `json:"session_count"`
 	Price         pgtype.Numeric `json:"price"`
 	MaxCapacity   *int32         `json:"max_capacity"`
 }
@@ -108,7 +108,7 @@ func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Cou
 		arg.Description,
 		arg.Subject,
 		arg.Level,
-		arg.DurationWeeks,
+		arg.SessionCount,
 		arg.Price,
 		arg.MaxCapacity,
 	)
@@ -120,7 +120,7 @@ func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Cou
 		&i.Description,
 		&i.Subject,
 		&i.Level,
-		&i.DurationWeeks,
+		&i.SessionCount,
 		&i.Price,
 		&i.MaxCapacity,
 		&i.Status,
@@ -133,7 +133,7 @@ func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Cou
 const getCourseByID = `-- name: GetCourseByID :one
 SELECT
   c.id, c.course_name, c.course_code, c.description, c.subject, c.level,
-  c.duration_weeks, c.price, c.max_capacity, c.status, c.created_at, c.updated_at,
+  c.session_count, c.price, c.max_capacity, c.status, c.created_at, c.updated_at,
   COUNT(b.id)::bigint                                       AS batch_count,
   COUNT(b.id) FILTER (WHERE b.status = 'ongoing')::bigint   AS ongoing_batch_count,
   COALESCE((
@@ -146,7 +146,7 @@ LEFT JOIN batches b ON b.course_id = c.id
 WHERE c.id = $1
 GROUP BY
   c.id, c.course_name, c.course_code, c.description, c.subject,
-  c.level, c.duration_weeks, c.price, c.max_capacity, c.status,
+  c.level, c.session_count, c.price, c.max_capacity, c.status,
   c.created_at, c.updated_at
 `
 
@@ -157,7 +157,7 @@ type GetCourseByIDRow struct {
 	Description       *string            `json:"description"`
 	Subject           *string            `json:"subject"`
 	Level             *string            `json:"level"`
-	DurationWeeks     *int32             `json:"duration_weeks"`
+	SessionCount     *int32             `json:"session_count"`
 	Price             pgtype.Numeric     `json:"price"`
 	MaxCapacity       *int32             `json:"max_capacity"`
 	Status            string             `json:"status"`
@@ -178,7 +178,7 @@ func (q *Queries) GetCourseByID(ctx context.Context, id uuid.UUID) (GetCourseByI
 		&i.Description,
 		&i.Subject,
 		&i.Level,
-		&i.DurationWeeks,
+		&i.SessionCount,
 		&i.Price,
 		&i.MaxCapacity,
 		&i.Status,
@@ -194,7 +194,7 @@ func (q *Queries) GetCourseByID(ctx context.Context, id uuid.UUID) (GetCourseByI
 const listCourses = `-- name: ListCourses :many
 SELECT
   id, course_name, course_code, description, subject, level,
-  duration_weeks, price, max_capacity, status, created_at, updated_at,
+  session_count, price, max_capacity, status, created_at, updated_at,
   batch_count, ongoing_batch_count, enrolled_count
 FROM courses_with_stats
 WHERE
@@ -240,7 +240,7 @@ func (q *Queries) ListCourses(ctx context.Context, arg ListCoursesParams) ([]Cou
 			&i.Description,
 			&i.Subject,
 			&i.Level,
-			&i.DurationWeeks,
+			&i.SessionCount,
 			&i.Price,
 			&i.MaxCapacity,
 			&i.Status,
@@ -267,12 +267,12 @@ UPDATE courses SET
   description    = COALESCE($3,    description),
   subject        = COALESCE($4,        subject),
   level          = COALESCE($5,          level),
-  duration_weeks = COALESCE($6, duration_weeks),
+  session_count = COALESCE($6, session_count),
   price          = COALESCE($7,          price),
   max_capacity   = COALESCE($8,   max_capacity),
   updated_at     = NOW()
 WHERE id = $9
-RETURNING id, course_name, course_code, description, subject, level, duration_weeks, price, max_capacity, status, created_at, updated_at
+RETURNING id, course_name, course_code, description, subject, level, session_count, price, max_capacity, status, created_at, updated_at
 `
 
 type UpdateCourseParams struct {
@@ -281,7 +281,7 @@ type UpdateCourseParams struct {
 	Description   *string        `json:"description"`
 	Subject       *string        `json:"subject"`
 	Level         *string        `json:"level"`
-	DurationWeeks *int32         `json:"duration_weeks"`
+	SessionCount *int32         `json:"session_count"`
 	Price         pgtype.Numeric `json:"price"`
 	MaxCapacity   *int32         `json:"max_capacity"`
 	ID            uuid.UUID      `json:"id"`
@@ -294,7 +294,7 @@ func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Cou
 		arg.Description,
 		arg.Subject,
 		arg.Level,
-		arg.DurationWeeks,
+		arg.SessionCount,
 		arg.Price,
 		arg.MaxCapacity,
 		arg.ID,
@@ -307,7 +307,7 @@ func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Cou
 		&i.Description,
 		&i.Subject,
 		&i.Level,
-		&i.DurationWeeks,
+		&i.SessionCount,
 		&i.Price,
 		&i.MaxCapacity,
 		&i.Status,

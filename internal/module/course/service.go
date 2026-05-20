@@ -24,7 +24,7 @@ type Course struct {
 	Description   *string
 	Subject       *string
 	Level         *string
-	DurationWeeks *int32
+	SessionCount *int32
 	Price         *string
 	MaxCapacity   *int32
 	Status        string
@@ -71,7 +71,7 @@ type CreateCourseRequest struct {
 	Description   *string
 	Subject       *string
 	Level         *string
-	DurationWeeks *int32
+	SessionCount *int32
 	Price         *string
 	MaxCapacity   *int32
 }
@@ -82,7 +82,7 @@ type UpdateCourseRequest struct {
 	Description   *string
 	Subject       *string
 	Level         *string
-	DurationWeeks *int32
+	SessionCount *int32
 	Price         *string
 	MaxCapacity   *int32
 }

@@ -31,7 +31,7 @@ type Course struct {
 	Description   *string            `json:"description"`
 	Subject       *string            `json:"subject"`
 	Level         *string            `json:"level"`
-	DurationWeeks *int32             `json:"duration_weeks"`
+	SessionCount *int32             `json:"session_count"`
 	Price         pgtype.Numeric     `json:"price"`
 	MaxCapacity   *int32             `json:"max_capacity"`
 	Status        string             `json:"status"`
@@ -46,7 +46,7 @@ type CoursesWithStat struct {
 	Description       *string            `json:"description"`
 	Subject           *string            `json:"subject"`
 	Level             *string            `json:"level"`
-	DurationWeeks     *int32             `json:"duration_weeks"`
+	SessionCount     *int32             `json:"session_count"`
 	Price             pgtype.Numeric     `json:"price"`
 	MaxCapacity       *int32             `json:"max_capacity"`
 	Status            string             `json:"status"`

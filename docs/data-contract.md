@@ -522,7 +522,7 @@ Sets `status = inactive`. No body.
 | `description`    | TEXT          | Yes      | Extended description shown in course detail view.                                                          |
 | `subject`        | VARCHAR(100)  | Yes      | Subject area (e.g. "Mathematics", "English"). Useful for filtering.                                        |
 | `level`          | ENUM          | Yes      | Difficulty level — drives UI badge color and filtering.                                                    |
-| `duration_weeks` | INT           | Yes      | Expected duration. Informational; does not auto-close batches.                                             |
+| `session_count`  | INT           | Yes      | Maximum number of scheduled sessions per batch of this course. Enforced when adding sessions to a batch's calendar. |
 | `price`          | NUMERIC(12,2) | Yes      | Course fee in IDR. Stored as fixed-point, not float.                                                       |
 | `max_capacity`   | INT           | Yes      | Maximum students per batch of this course. Enforced at enrollment.                                         |
 | `status`         | ENUM          | No       | `archived` courses are hidden from create-batch flows but preserved for historical data. Default `active`. |
@@ -552,7 +552,7 @@ Sets `status = inactive`. No body.
       "description": "Kursus matematika untuk siswa SD kelas 4-6.",
       "subject": "Mathematics",
       "level": "beginner",
-      "duration_weeks": 12,
+      "session_count": 12,
       "price": "750000.00",
       "max_capacity": 20,
       "status": "active",
@@ -589,7 +589,7 @@ Sets `status = inactive`. No body.
   "description": "Kursus matematika untuk siswa SD kelas 4-6.",
   "subject": "Mathematics",
   "level": "beginner",
-  "duration_weeks": 12,
+  "session_count": 12,
   "price": "750000.00",
   "max_capacity": 20,
   "status": "active",
@@ -616,7 +616,7 @@ Sets `status = inactive`. No body.
   "description": "Kursus matematika untuk siswa SD kelas 4-6.",
   "subject": "Mathematics",
   "level": "beginner",
-  "duration_weeks": 12,
+  "session_count": 12,
   "price": "750000.00",
   "max_capacity": 20
 }

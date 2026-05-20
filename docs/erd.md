@@ -51,7 +51,7 @@
 | `description`    | TEXT    |                                        |
 | `subject`        | VARCHAR |                                        |
 | `level`          | ENUM    | `beginner`, `intermediate`, `advanced` |
-| `duration_weeks` | INT     |                                        |
+| `session_count`  | INT     |                                        |
 | `price`          | DECIMAL |                                        |
 | `max_capacity`   | INT     |                                        |
 | `status`         | ENUM    | `active`, `archived`                   |

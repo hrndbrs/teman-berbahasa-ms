@@ -1238,7 +1238,7 @@ components:
           type: string
           enum: [beginner, intermediate, advanced]
           nullable: true
-        duration_weeks:
+        session_count:
           type: integer
           nullable: true
         price:
@@ -1285,7 +1285,7 @@ components:
         level:
           type: string
           enum: [beginner, intermediate, advanced]
-        duration_weeks:
+        session_count:
           type: integer
         price:
           type: string
@@ -1307,7 +1307,7 @@ components:
         level:
           type: string
           enum: [beginner, intermediate, advanced]
-        duration_weeks:
+        session_count:
           type: integer
         price:
           type: string

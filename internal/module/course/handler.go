@@ -43,7 +43,7 @@ type createCourseReq struct {
 	Description   *string `json:"description"`
 	Subject       *string `json:"subject"`
 	Level         *string `json:"level"          validate:"omitempty,oneof=beginner intermediate advanced"`
-	DurationWeeks *int32  `json:"duration_weeks"`
+	SessionCount *int32  `json:"session_count"`
 	Price         *string `json:"price"`
 	MaxCapacity   *int32  `json:"max_capacity"`
 }
@@ -54,7 +54,7 @@ type updateCourseReq struct {
 	Description   *string `json:"description"`
 	Subject       *string `json:"subject"`
 	Level         *string `json:"level"          validate:"omitempty,oneof=beginner intermediate advanced"`
-	DurationWeeks *int32  `json:"duration_weeks"`
+	SessionCount *int32  `json:"session_count"`
 	Price         *string `json:"price"`
 	MaxCapacity   *int32  `json:"max_capacity"`
 }
@@ -68,7 +68,7 @@ type courseResp struct {
 	Description   *string `json:"description"`
 	Subject       *string `json:"subject"`
 	Level         *string `json:"level"`
-	DurationWeeks *int32  `json:"duration_weeks"`
+	SessionCount *int32  `json:"session_count"`
 	Price         *string `json:"price"`
 	MaxCapacity   *int32  `json:"max_capacity"`
 	Status        string  `json:"status"`
@@ -97,7 +97,7 @@ func toCourseResp(c Course) courseResp {
 		Description:   c.Description,
 		Subject:       c.Subject,
 		Level:         c.Level,
-		DurationWeeks: c.DurationWeeks,
+		SessionCount: c.SessionCount,
 		Price:         c.Price,
 		MaxCapacity:   c.MaxCapacity,
 		Status:        c.Status,
@@ -176,7 +176,7 @@ func (h *Handler) createCourse(w http.ResponseWriter, r *http.Request) {
 		Description:   req.Description,
 		Subject:       req.Subject,
 		Level:         req.Level,
-		DurationWeeks: req.DurationWeeks,
+		SessionCount: req.SessionCount,
 		Price:         req.Price,
 		MaxCapacity:   req.MaxCapacity,
 	})
@@ -204,7 +204,7 @@ func (h *Handler) updateCourse(w http.ResponseWriter, r *http.Request) {
 		Description:   req.Description,
 		Subject:       req.Subject,
 		Level:         req.Level,
-		DurationWeeks: req.DurationWeeks,
+		SessionCount: req.SessionCount,
 		Price:         req.Price,
 		MaxCapacity:   req.MaxCapacity,
 	})

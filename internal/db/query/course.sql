@@ -1,7 +1,7 @@
 -- name: ListCourses :many
 SELECT
   id, course_name, course_code, description, subject, level,
-  duration_weeks, price, max_capacity, status, created_at, updated_at,
+  session_count, price, max_capacity, status, created_at, updated_at,
   batch_count, ongoing_batch_count, enrolled_count
 FROM courses_with_stats
 WHERE
@@ -31,7 +31,7 @@ WHERE
 -- name: GetCourseByID :one
 SELECT
   c.id, c.course_name, c.course_code, c.description, c.subject, c.level,
-  c.duration_weeks, c.price, c.max_capacity, c.status, c.created_at, c.updated_at,
+  c.session_count, c.price, c.max_capacity, c.status, c.created_at, c.updated_at,
   COUNT(b.id)::bigint                                       AS batch_count,
   COUNT(b.id) FILTER (WHERE b.status = 'ongoing')::bigint   AS ongoing_batch_count,
   COALESCE((
@@ -44,11 +44,11 @@ LEFT JOIN batches b ON b.course_id = c.id
 WHERE c.id = sqlc.arg('id')
 GROUP BY
   c.id, c.course_name, c.course_code, c.description, c.subject,
-  c.level, c.duration_weeks, c.price, c.max_capacity, c.status,
+  c.level, c.session_count, c.price, c.max_capacity, c.status,
   c.created_at, c.updated_at;
 
 -- name: CreateCourse :one
-INSERT INTO courses (id, course_name, course_code, description, subject, level, duration_weeks, price, max_capacity)
+INSERT INTO courses (id, course_name, course_code, description, subject, level, session_count, price, max_capacity)
 VALUES (
   sqlc.arg('id'),
   sqlc.arg('course_name'),
@@ -56,11 +56,11 @@ VALUES (
   sqlc.narg('description'),
   sqlc.narg('subject'),
   sqlc.narg('level'),
-  sqlc.narg('duration_weeks'),
+  sqlc.narg('session_count'),
   sqlc.narg('price'),
   sqlc.narg('max_capacity')
 )
-RETURNING id, course_name, course_code, description, subject, level, duration_weeks, price, max_capacity, status, created_at, updated_at;
+RETURNING id, course_name, course_code, description, subject, level, session_count, price, max_capacity, status, created_at, updated_at;
 
 -- name: UpdateCourse :one
 UPDATE courses SET
@@ -69,12 +69,12 @@ UPDATE courses SET
   description    = COALESCE(sqlc.narg('description'),    description),
   subject        = COALESCE(sqlc.narg('subject'),        subject),
   level          = COALESCE(sqlc.narg('level'),          level),
-  duration_weeks = COALESCE(sqlc.narg('duration_weeks'), duration_weeks),
+  session_count = COALESCE(sqlc.narg('session_count'), session_count),
   price          = COALESCE(sqlc.narg('price'),          price),
   max_capacity   = COALESCE(sqlc.narg('max_capacity'),   max_capacity),
   updated_at     = NOW()
 WHERE id = sqlc.arg('id')
-RETURNING id, course_name, course_code, description, subject, level, duration_weeks, price, max_capacity, status, created_at, updated_at;
+RETURNING id, course_name, course_code, description, subject, level, session_count, price, max_capacity, status, created_at, updated_at;
 
 -- name: ArchiveCourse :one
 UPDATE courses SET
