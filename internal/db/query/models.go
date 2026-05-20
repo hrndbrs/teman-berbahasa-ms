@@ -39,6 +39,24 @@ type Course struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
+type CoursesWithStat struct {
+	ID                uuid.UUID          `json:"id"`
+	CourseName        string             `json:"course_name"`
+	CourseCode        string             `json:"course_code"`
+	Description       *string            `json:"description"`
+	Subject           *string            `json:"subject"`
+	Level             *string            `json:"level"`
+	DurationWeeks     *int32             `json:"duration_weeks"`
+	Price             pgtype.Numeric     `json:"price"`
+	MaxCapacity       *int32             `json:"max_capacity"`
+	Status            string             `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	BatchCount        int64              `json:"batch_count"`
+	OngoingBatchCount int64              `json:"ongoing_batch_count"`
+	EnrolledCount     interface{}        `json:"enrolled_count"`
+}
+
 type Enrollment struct {
 	ID             uuid.UUID          `json:"id"`
 	StudentID      uuid.UUID          `json:"student_id"`
