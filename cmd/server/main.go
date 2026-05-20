@@ -88,6 +88,7 @@ func main() {
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Auth(tokenManager))
+		authHandler.RegisterProtected(r)
 		userHandler.Register(r)
 		studentHandler.Register(r)
 		// future modules go here

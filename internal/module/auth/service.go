@@ -120,6 +120,23 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Login
 	}, nil
 }
 
+func (s *AuthService) Me(ctx context.Context, userID string) (*UserInfo, error) {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+	user, err := s.repo.GetUserByID(ctx, id)
+	if err != nil || user.Status != "active" {
+		return nil, ErrInvalidToken
+	}
+	return &UserInfo{
+		ID:        user.ID.String(),
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Role:      user.Role,
+	}, nil
+}
+
 func (s *AuthService) Refresh(ctx context.Context, rawToken string) (*TokenPair, error) {
 	row, err := s.repo.GetRefreshTokenByRaw(ctx, rawToken)
 	if err != nil {

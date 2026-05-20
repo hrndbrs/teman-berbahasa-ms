@@ -300,6 +300,35 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: Get current session
+      description: |
+        Returns the authenticated user's profile. Use to verify a session is still
+        valid and retrieve the same user object returned by `POST /auth/login`.
+
+        Requires a valid Bearer access token.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Session is valid; user info returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+              example:
+                id: 019687a2-0000-7000-8000-000000000001
+                first_name: Siti
+                last_name: Rahayu
+                role: admin
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /users:
     get:
       tags: [Users]

@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
+
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
 )
 
 type Handler struct {
@@ -26,6 +28,10 @@ func (h *Handler) Register(r chi.Router) {
 	r.Post("/auth/logout", h.logout)
 	r.Post("/auth/forgot-password", h.forgotPassword)
 	r.Post("/auth/reset-password", h.resetPassword)
+}
+
+func (h *Handler) RegisterProtected(r chi.Router) {
+	r.Get("/auth/me", h.me)
 }
 
 type loginRequest struct {
@@ -69,6 +75,16 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+	info, err := h.svc.Me(r.Context(), userID)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, errEnvelope("UNAUTHORIZED", "invalid or expired token"))
+		return
+	}
+	writeJSON(w, http.StatusOK, info)
 }
 
 func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
