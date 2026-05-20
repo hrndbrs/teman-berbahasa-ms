@@ -4,11 +4,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/token"
 )
 
 // --- Recovery ---
@@ -93,4 +95,99 @@ func TestCORS_NoOriginHeader(t *testing.T) {
 
 	assert.Empty(t, rr.Header().Get("Access-Control-Allow-Origin"))
 	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+// --- Auth ---
+
+func newTestTokenManager(t *testing.T) *token.Manager {
+	t.Helper()
+	m, err := token.NewManager("../../private.pem", "../../public.pem")
+	if err != nil {
+		t.Skip("RSA key files not found — run `make keys` first")
+	}
+	return m
+}
+
+func TestAuth_MissingHeader(t *testing.T) {
+	tm := newTestTokenManager(t)
+	h := middleware.Auth(tm)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+func TestAuth_InvalidToken(t *testing.T) {
+	tm := newTestTokenManager(t)
+	h := middleware.Auth(tm)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer not-a-real-token")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+func TestAuth_ValidToken_SetsContext(t *testing.T) {
+	tm := newTestTokenManager(t)
+	var gotUserID, gotRole string
+
+	h := middleware.Auth(tm)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = middleware.UserIDFromCtx(r.Context())
+		gotRole = middleware.UserRoleFromCtx(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	tok, err := tm.Sign("user-abc", "teacher", 15*time.Minute)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "user-abc", gotUserID)
+	assert.Equal(t, "teacher", gotRole)
+}
+
+func TestRequireRole_AllowedRole(t *testing.T) {
+	tm := newTestTokenManager(t)
+	h := middleware.Auth(tm)(middleware.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})))
+
+	tok, err := tm.Sign("user-abc", "admin", 15*time.Minute)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestRequireRole_ForbiddenRole(t *testing.T) {
+	tm := newTestTokenManager(t)
+	h := middleware.Auth(tm)(middleware.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})))
+
+	tok, err := tm.Sign("user-abc", "teacher", 15*time.Minute)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
