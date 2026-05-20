@@ -19,6 +19,7 @@ import (
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/auth"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/health"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/student"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/user"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/token"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/worker"
@@ -68,11 +69,19 @@ func main() {
 	userSvc := user.NewService(userRepo, userEmailSender)
 	userHandler := user.NewHandler(userSvc)
 
+	studentRepo := student.NewRepository(pool)
+	studentSvc := student.NewService(studentRepo)
+	studentHandler := student.NewHandler(studentSvc)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 	r.Use(chimw.StripSlashes)
+
+	r.Options("/*", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
 
 	health.NewHandler(pool).Register(r)
 	authHandler.Register(r)
@@ -80,6 +89,7 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Auth(tokenManager))
 		userHandler.Register(r)
+		studentHandler.Register(r)
 		// future modules go here
 	})
 
