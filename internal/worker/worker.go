@@ -24,6 +24,7 @@ func (w *Worker) Start(ctx context.Context, concurrency int) {
 			for {
 				select {
 				case job := <-w.jobs:
+					slog.DebugContext(ctx, "executing job", "type", job.Type())
 					job.Execute(ctx)
 				case <-ctx.Done():
 					return
@@ -37,6 +38,7 @@ func (w *Worker) Start(ctx context.Context, concurrency int) {
 func (w *Worker) Dispatch(job Job) {
 	select {
 	case w.jobs <- job:
+		slog.Debug("job dispatched", "type", job.Type())
 	default:
 		slog.Warn("worker queue full, dropping job", "type", job.Type())
 	}

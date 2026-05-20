@@ -41,6 +41,7 @@ func Auth(tm *token.Manager) func(http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), contextKeyUserID, claims.UserID)
 			ctx = context.WithValue(ctx, contextKeyUserRole, claims.Role)
+			AddLogFields(ctx, "user_id", claims.UserID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

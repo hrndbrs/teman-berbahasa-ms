@@ -16,6 +16,7 @@ type Config struct {
 	ResendAPIKey       string
 	ResendFromEmail    string
 	FrontendURL        string
+	LogLevel           string
 }
 
 func Load() (*Config, error) {
@@ -25,6 +26,7 @@ func Load() (*Config, error) {
 		JWTPublicKeyPath:  os.Getenv("JWT_PUBLIC_KEY_PATH"),
 		SentryDSN:         os.Getenv("SENTRY_DSN"),
 		Port:              os.Getenv("PORT"),
+		LogLevel:          os.Getenv("LOG_LEVEL"),
 		ResendAPIKey:      os.Getenv("RESEND_API_KEY"),
 		ResendFromEmail:   os.Getenv("RESEND_FROM_EMAIL"),
 		FrontendURL:       os.Getenv("FRONTEND_URL"),
@@ -32,6 +34,9 @@ func Load() (*Config, error) {
 
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "info"
 	}
 
 	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {

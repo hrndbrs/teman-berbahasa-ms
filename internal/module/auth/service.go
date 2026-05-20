@@ -87,10 +87,12 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Login
 		return nil, ErrInvalidCredentials
 	}
 	if user.FailedAttempts >= 10 {
+		slog.WarnContext(ctx, "login rejected: account locked", "user_id", user.ID)
 		return nil, ErrAccountLocked
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		_ = s.repo.IncrementFailedAttempts(ctx, user.ID)
+		slog.WarnContext(ctx, "login failed: invalid credentials", "user_id", user.ID, "attempts", user.FailedAttempts+1)
 		return nil, ErrInvalidCredentials
 	}
 	_ = s.repo.ResetFailedAttempts(ctx, user.ID)
@@ -107,6 +109,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Login
 		return nil, err
 	}
 
+	slog.InfoContext(ctx, "login", "user_id", user.ID, "role", user.Role)
 	return &LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: rawRefresh,
@@ -167,6 +170,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawToken string) (*TokenPair,
 		return nil, err
 	}
 
+	slog.DebugContext(ctx, "token refreshed", "user_id", row.UserID)
 	return &TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: newRaw,
@@ -182,7 +186,11 @@ func (s *AuthService) Logout(ctx context.Context, rawToken string) error {
 	if err != nil {
 		return err
 	}
-	return s.repo.DeleteRefreshTokensByUserID(ctx, row.UserID)
+	if err := s.repo.DeleteRefreshTokensByUserID(ctx, row.UserID); err != nil {
+		return err
+	}
+	slog.DebugContext(ctx, "logout", "user_id", row.UserID)
+	return nil
 }
 
 func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
@@ -203,6 +211,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 		return err
 	}
 
+	slog.InfoContext(ctx, "password reset requested", "user_id", user.ID)
 	if err := s.emailer.SendPasswordReset(ctx, user.Email, rawToken); err != nil {
 		slog.ErrorContext(ctx, "failed to send password reset email", "error", err, "user_id", user.ID)
 	}
@@ -229,6 +238,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, rawToken, newPassword s
 		slog.ErrorContext(ctx, "failed to delete reset token after password update", "error", err)
 	}
 	_ = s.repo.DeleteRefreshTokensByUserID(ctx, row.UserID)
+	slog.InfoContext(ctx, "password reset completed", "user_id", row.UserID)
 	return nil
 }
 

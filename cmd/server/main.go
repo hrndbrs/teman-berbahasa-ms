@@ -27,13 +27,18 @@ import (
 )
 
 func main() {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
-
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("config error", "error", err)
+		// config not loaded yet — plain logger is fine for this fatal error
+		slog.New(slog.NewJSONHandler(os.Stdout, nil)).Error("config error", "error", err)
 		os.Exit(1)
 	}
+
+	var logLevel slog.LevelVar
+	if err := logLevel.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
+		logLevel.Set(slog.LevelInfo)
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: &logLevel})))
 
 	if cfg.SentryDSN != "" {
 		if err := sentry.Init(sentry.ClientOptions{Dsn: cfg.SentryDSN}); err != nil {
