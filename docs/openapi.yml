@@ -36,6 +36,9 @@ servers:
   - url: https://api.temanberbahasa.id
     description: Production (via Caddy reverse proxy, auto TLS)
 
+security:
+  - bearerAuth: []
+
 tags:
   - name: Health
     description: Service health and readiness checks.
@@ -43,6 +46,16 @@ tags:
     description: |
       Authentication flows: login, token refresh, logout, and password reset.
       No auth header required on any of these endpoints.
+  - name: Users
+    description: |
+      CRUD for internal staff accounts (admin/teacher/staff).
+      All endpoints require a valid JWT. Create/update/list restricted to `admin` role.
+      `GET /users/{id}` is accessible to the owner or any admin.
+  - name: Students
+    description: |
+      CRUD for student records.
+      All endpoints require a valid JWT. Create/update restricted to `admin` and `staff` roles.
+      All authenticated roles can view students.
 
 paths:
   /health:
@@ -287,6 +300,292 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      summary: List users
+      description: Returns paginated list of staff accounts. Restricted to `admin` role.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, teacher, staff]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/perPage"
+      responses:
+        "200":
+          description: Paginated user list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Users]
+      operationId: createUser
+      summary: Create user
+      description: |
+        Creates a new staff account and sends an invite email with a password-set link.
+        Restricted to `admin` role. `created_by_user_id` is server-set from JWT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            example:
+              first_name: Budi
+              last_name: Santoso
+              email: budi@temanberbahasa.id
+              role: teacher
+              phone: "081234567890"
+      responses:
+        "201":
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      operationId: getUser
+      summary: Get user
+      description: |
+        Returns a single user. Accessible by the owner (own record) or any `admin`.
+        Returns `403` if a non-admin requests another user's record.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: User found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      tags: [Users]
+      operationId: updateUser
+      summary: Update user (partial)
+      description: |
+        Partially updates a user. All fields optional. Restricted to `admin` role.
+        Changing `role` or setting `status = inactive` immediately invalidates all
+        active sessions for the target user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            example:
+              status: inactive
+      responses:
+        "200":
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /students:
+    get:
+      tags: [Students]
+      operationId: listStudents
+      summary: List students
+      description: |
+        Returns paginated list of student records. All authenticated roles allowed.
+        Each item includes `enrolled_batches` — an array of active batch codes for
+        that student (non-dropped enrollments only).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, graduated]
+        - name: search
+          in: query
+          description: Full-text search across first_name, last_name, and email (case-insensitive).
+          schema:
+            type: string
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/perPage"
+      responses:
+        "200":
+          description: Paginated student list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Students]
+      operationId: createStudent
+      summary: Create student
+      description: |
+        Registers a new student. Restricted to `admin` and `staff` roles.
+        `registration_date` defaults to today if omitted. `email` is optional.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudentRequest"
+            example:
+              first_name: Rina
+              last_name: Kusuma
+              email: rina@email.com
+              phone: "082111111111"
+              date_of_birth: "2010-03-15"
+              gender: female
+              parent_name: Dewi Kusuma
+              parent_phone: "081222222222"
+      responses:
+        "201":
+          description: Student created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /students/{id}:
+    get:
+      tags: [Students]
+      operationId: getStudent
+      summary: Get student
+      description: |
+        Returns a single student with full enrollment history (all statuses).
+        All authenticated roles allowed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Student found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      tags: [Students]
+      operationId: updateStudent
+      summary: Update student (partial)
+      description: |
+        Partially updates a student record. All fields optional.
+        Restricted to `admin` and `staff` roles.
+        Response does not include the `enrollments` array.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStudentRequest"
+            example:
+              status: graduated
+      responses:
+        "200":
+          description: Student updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentObject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -415,6 +714,285 @@ components:
           enum: [admin, teacher, staff]
           description: User role. Controls access to protected endpoints.
 
+    PaginationMeta:
+      type: object
+      required: [page, per_page, total, total_pages]
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    # ── User schemas ──────────────────────────────────────────────────────────
+
+    UserObject:
+      type: object
+      required: [id, first_name, last_name, email, role, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, teacher, staff]
+        phone:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [active, inactive]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserObject"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    CreateUserRequest:
+      type: object
+      required: [first_name, last_name, email, role]
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, teacher, staff]
+        phone:
+          type: [string, 'null']
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, teacher, staff]
+        phone:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [active, inactive]
+
+    # ── Student schemas ───────────────────────────────────────────────────────
+
+    StudentObject:
+      type: object
+      required: [id, first_name, last_name, registration_date, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        phone:
+          type: [string, 'null']
+        date_of_birth:
+          type: [string, 'null']
+          format: date
+        gender:
+          type: [string, 'null']
+          enum: [male, female, other]
+        address:
+          type: [string, 'null']
+        parent_name:
+          type: [string, 'null']
+        parent_phone:
+          type: [string, 'null']
+        registration_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, inactive, graduated]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    StudentListItem:
+      allOf:
+        - $ref: "#/components/schemas/StudentObject"
+        - type: object
+          required: [enrolled_batches]
+          properties:
+            enrolled_batches:
+              type: array
+              items:
+                type: string
+              description: Active batch codes (non-dropped enrollments). Empty array if none.
+              example: ["B001", "B003"]
+
+    StudentListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudentListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    BatchRef:
+      type: object
+      required: [id, batch_name, batch_code, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_name:
+          type: string
+        batch_code:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, ongoing, completed]
+
+    CourseRef:
+      type: object
+      required: [id, course_name, course_code]
+      properties:
+        id:
+          type: string
+          format: uuid
+        course_name:
+          type: string
+        course_code:
+          type: string
+        level:
+          type: [string, 'null']
+          enum: [beginner, intermediate, advanced]
+
+    EnrollmentSummary:
+      type: object
+      required: [id, status, payment_status, enrollment_date, batch, course]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [enrolled, dropped, completed]
+        payment_status:
+          type: string
+          enum: [pending, partial, paid]
+        enrollment_date:
+          type: string
+          format: date
+        batch:
+          $ref: "#/components/schemas/BatchRef"
+        course:
+          $ref: "#/components/schemas/CourseRef"
+
+    StudentDetail:
+      allOf:
+        - $ref: "#/components/schemas/StudentObject"
+        - type: object
+          required: [enrollments]
+          properties:
+            enrollments:
+              type: array
+              items:
+                $ref: "#/components/schemas/EnrollmentSummary"
+              description: All enrollments (all statuses). Empty array if none.
+
+    CreateStudentRequest:
+      type: object
+      required: [first_name, last_name]
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        phone:
+          type: [string, 'null']
+        date_of_birth:
+          type: [string, 'null']
+          format: date
+        gender:
+          type: [string, 'null']
+          enum: [male, female, other]
+        address:
+          type: [string, 'null']
+        parent_name:
+          type: [string, 'null']
+        parent_phone:
+          type: [string, 'null']
+        registration_date:
+          type: [string, 'null']
+          format: date
+          description: Defaults to today if omitted.
+
+    UpdateStudentRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        phone:
+          type: [string, 'null']
+        date_of_birth:
+          type: [string, 'null']
+          format: date
+        gender:
+          type: [string, 'null']
+          enum: [male, female, other]
+        address:
+          type: [string, 'null']
+        parent_name:
+          type: [string, 'null']
+        parent_phone:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [active, inactive, graduated]
+
     MessageResponse:
       type: object
       required: [message]
@@ -456,7 +1034,78 @@ components:
               additionalProperties:
                 type: string
 
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID v7 identifier of the resource.
+
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+      description: Page number (1-indexed).
+
+    perPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+      description: Items per page (max 100).
+
   responses:
+    Unauthorized:
+      description: Missing or invalid JWT.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: missing or invalid token
+
+    Forbidden:
+      description: Valid JWT but insufficient role.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: FORBIDDEN
+              message: access denied
+
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: NOT_FOUND
+              message: resource not found
+
+    Conflict:
+      description: Unique constraint violation (e.g. duplicate email).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: CONFLICT
+              message: email already in use
+
     ValidationError:
       description: Request body failed validation.
       content:
