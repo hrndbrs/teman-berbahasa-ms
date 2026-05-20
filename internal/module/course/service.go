@@ -175,6 +175,14 @@ func (s *CourseService) Update(ctx context.Context, rawID string, req UpdateCour
 	if err != nil {
 		return nil, err
 	}
+	if req.CourseName != nil {
+		trimmed := strings.TrimSpace(*req.CourseName)
+		req.CourseName = &trimmed
+	}
+	if req.CourseCode != nil {
+		trimmed := strings.TrimSpace(*req.CourseCode)
+		req.CourseCode = &trimmed
+	}
 	c, err := s.repo.Update(ctx, id, req)
 	if err != nil {
 		if isUniqueViolation(err) {

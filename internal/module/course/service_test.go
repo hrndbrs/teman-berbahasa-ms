@@ -252,6 +252,36 @@ func TestUpdate_DuplicateCourseCode(t *testing.T) {
 	assert.ErrorIs(t, err, course.ErrCourseCodeConflict)
 }
 
+func TestUpdate_InvalidUUID(t *testing.T) {
+	svc := newSvc(&mockRepo{})
+
+	_, err := svc.Update(context.Background(), "not-a-uuid", course.UpdateCourseRequest{})
+	assert.ErrorIs(t, err, course.ErrNotFound)
+}
+
+func TestUpdate_TrimsCourseCode(t *testing.T) {
+	var capturedReq course.UpdateCourseRequest
+	svc := newSvc(&mockRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (course.CourseWithStats, error) {
+			return course.CourseWithStats{Course: course.Course{ID: fixedID(), Status: "active"}}, nil
+		},
+		updateFn: func(_ context.Context, _ uuid.UUID, req course.UpdateCourseRequest) (course.Course, error) {
+			capturedReq = req
+			return course.Course{ID: fixedID(), Status: "active"}, nil
+		},
+	})
+
+	name := "  Updated  "
+	code := "  JP-N5  "
+	_, err := svc.Update(context.Background(), fixedID().String(), course.UpdateCourseRequest{
+		CourseName: &name,
+		CourseCode: &code,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Updated", *capturedReq.CourseName)
+	assert.Equal(t, "JP-N5", *capturedReq.CourseCode)
+}
+
 // ── Archive ───────────────────────────────────────────────────────────────────
 
 func TestArchive_HappyPath(t *testing.T) {
