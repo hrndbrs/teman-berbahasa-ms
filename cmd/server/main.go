@@ -17,7 +17,9 @@ import (
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/config"
 	interndb "github.com/hrndbrs/teman-berbahasa-ms/internal/db"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/auth"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/health"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/token"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/worker"
 )
 
@@ -49,6 +51,17 @@ func main() {
 	w := worker.New(100)
 	w.Start(ctx, 4)
 
+	tokenManager, err := token.NewManager(cfg.JWTPrivateKeyPath, cfg.JWTPublicKeyPath)
+	if err != nil {
+		slog.Error("token manager init failed", "error", err)
+		os.Exit(1)
+	}
+
+	authRepo := auth.NewRepository(pool)
+	emailSender := auth.NewEmailSender(cfg.ResendAPIKey, cfg.ResendFromEmail, cfg.FrontendURL)
+	authSvc := auth.NewService(tokenManager, authRepo, emailSender)
+	authHandler := auth.NewHandler(authSvc)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
@@ -56,6 +69,12 @@ func main() {
 	r.Use(chimw.StripSlashes)
 
 	health.NewHandler(pool).Register(r)
+	authHandler.Register(r)
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Auth(tokenManager))
+		// future modules go here
+	})
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
