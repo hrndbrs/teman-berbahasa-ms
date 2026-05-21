@@ -61,6 +61,11 @@ tags:
       Course catalog CRUD and archive.
       All endpoints require a valid JWT. Create/update/archive restricted to `admin` role.
       All authenticated roles can view courses.
+  - name: Batches
+    description: |
+      Batch management scoped to courses.
+      All endpoints require a valid JWT. Create/update/delete restricted to `admin` and `staff` roles.
+      All authenticated roles can view batches.
 
 paths:
   /health:
@@ -327,35 +332,6 @@ paths:
                   message: invalid or expired reset token
         "422":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /auth/me:
-    get:
-      tags: [Auth]
-      operationId: getMe
-      summary: Get current session
-      description: |
-        Returns the authenticated user's profile. Use to verify a session is still
-        valid and retrieve the same user object returned by `POST /auth/login`.
-
-        Requires a valid Bearer access token.
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Session is valid; user info returned.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserInfo"
-              example:
-                id: 019687a2-0000-7000-8000-000000000001
-                first_name: Siti
-                last_name: Rahayu
-                role: admin
-        "401":
-          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1195,7 +1171,8 @@ components:
 
     UserObject:
       type: object
-      required: [id, first_name, last_name, email, role, status, created_at, updated_at]
+      required:
+        [id, first_name, last_name, email, role, status, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1211,7 +1188,7 @@ components:
           type: string
           enum: [admin, teacher, staff]
         phone:
-          type: [string, 'null']
+          type: [string, "null"]
         status:
           type: string
           enum: [active, inactive]
@@ -1248,7 +1225,7 @@ components:
           type: string
           enum: [admin, teacher, staff]
         phone:
-          type: [string, 'null']
+          type: [string, "null"]
 
     UpdateUserRequest:
       type: object
@@ -1264,7 +1241,7 @@ components:
           type: string
           enum: [admin, teacher, staff]
         phone:
-          type: [string, 'null']
+          type: [string, "null"]
         status:
           type: string
           enum: [active, inactive]
@@ -1273,7 +1250,16 @@ components:
 
     StudentObject:
       type: object
-      required: [id, first_name, last_name, registration_date, status, created_at, updated_at]
+      required:
+        [
+          id,
+          first_name,
+          last_name,
+          registration_date,
+          status,
+          created_at,
+          updated_at,
+        ]
       properties:
         id:
           type: string
@@ -1283,22 +1269,22 @@ components:
         last_name:
           type: string
         email:
-          type: [string, 'null']
+          type: [string, "null"]
           format: email
         phone:
-          type: [string, 'null']
+          type: [string, "null"]
         date_of_birth:
-          type: [string, 'null']
+          type: [string, "null"]
           format: date
         gender:
-          type: [string, 'null']
+          type: [string, "null"]
           enum: [male, female, other]
         address:
-          type: [string, 'null']
+          type: [string, "null"]
         parent_name:
-          type: [string, 'null']
+          type: [string, "null"]
         parent_phone:
-          type: [string, 'null']
+          type: [string, "null"]
         registration_date:
           type: string
           format: date
@@ -1363,7 +1349,7 @@ components:
         course_code:
           type: string
         level:
-          type: [string, 'null']
+          type: [string, "null"]
           enum: [beginner, intermediate, advanced]
 
     EnrollmentSummary:
@@ -1408,24 +1394,24 @@ components:
         last_name:
           type: string
         email:
-          type: [string, 'null']
+          type: [string, "null"]
           format: email
         phone:
-          type: [string, 'null']
+          type: [string, "null"]
         date_of_birth:
-          type: [string, 'null']
+          type: [string, "null"]
           format: date
         gender:
-          type: [string, 'null']
+          type: [string, "null"]
           enum: [male, female, other]
         address:
-          type: [string, 'null']
+          type: [string, "null"]
         parent_name:
-          type: [string, 'null']
+          type: [string, "null"]
         parent_phone:
-          type: [string, 'null']
+          type: [string, "null"]
         registration_date:
-          type: [string, 'null']
+          type: [string, "null"]
           format: date
           description: Defaults to today if omitted.
 
@@ -1437,22 +1423,22 @@ components:
         last_name:
           type: string
         email:
-          type: [string, 'null']
+          type: [string, "null"]
           format: email
         phone:
-          type: [string, 'null']
+          type: [string, "null"]
         date_of_birth:
-          type: [string, 'null']
+          type: [string, "null"]
           format: date
         gender:
-          type: [string, 'null']
+          type: [string, "null"]
           enum: [male, female, other]
         address:
-          type: [string, 'null']
+          type: [string, "null"]
         parent_name:
-          type: [string, 'null']
+          type: [string, "null"]
         parent_phone:
-          type: [string, 'null']
+          type: [string, "null"]
         status:
           type: string
           enum: [active, inactive, graduated]
@@ -1584,7 +1570,18 @@ components:
 
     Batch:
       type: object
-      required: [id, batch_name, batch_code, status, course, instructor, enrolled_count, created_at, updated_at]
+      required:
+        [
+          id,
+          batch_name,
+          batch_code,
+          status,
+          course,
+          instructor,
+          enrolled_count,
+          created_at,
+          updated_at,
+        ]
       properties:
         id:
           type: string
