@@ -138,6 +138,8 @@ Catch `pgerrcode.UniqueViolation` → return 409.
 - `instructor_user_id` must reference a `users.role = teacher` — validate in service before insert.
 - Status transitions: `upcoming → ongoing → completed` only. No reversals.
 - Cannot delete batch with active enrollments.
+- **No `start_date`/`end_date` on batches.** Date range is derived from schedules (`MIN`/`MAX` of schedule slots). Storing dates on the batch would require double-updating whenever a schedule is rescheduled (e.g., due to a holiday). `academic_year` (e.g., `"2026"`) is kept as a standalone administrative label.
+- When schedule module is built, add `first_class_date` and `last_class_date` to `batches_with_stats` view via `MIN`/`MAX` of schedule effective dates.
 
 ### Enrollments
 
