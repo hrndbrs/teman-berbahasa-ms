@@ -89,15 +89,15 @@ RETURNING id, course_name, course_code, description, subject, level, session_cou
 `
 
 type CreateCourseParams struct {
-	ID            uuid.UUID      `json:"id"`
-	CourseName    string         `json:"course_name"`
-	CourseCode    string         `json:"course_code"`
-	Description   *string        `json:"description"`
-	Subject       *string        `json:"subject"`
-	Level         *string        `json:"level"`
+	ID           uuid.UUID      `json:"id"`
+	CourseName   string         `json:"course_name"`
+	CourseCode   string         `json:"course_code"`
+	Description  *string        `json:"description"`
+	Subject      *string        `json:"subject"`
+	Level        *string        `json:"level"`
 	SessionCount *int32         `json:"session_count"`
-	Price         pgtype.Numeric `json:"price"`
-	MaxCapacity   *int32         `json:"max_capacity"`
+	Price        pgtype.Numeric `json:"price"`
+	MaxCapacity  *int32         `json:"max_capacity"`
 }
 
 func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Course, error) {
@@ -157,7 +157,7 @@ type GetCourseByIDRow struct {
 	Description       *string            `json:"description"`
 	Subject           *string            `json:"subject"`
 	Level             *string            `json:"level"`
-	SessionCount     *int32             `json:"session_count"`
+	SessionCount      *int32             `json:"session_count"`
 	Price             pgtype.Numeric     `json:"price"`
 	MaxCapacity       *int32             `json:"max_capacity"`
 	Status            string             `json:"status"`
@@ -276,15 +276,15 @@ RETURNING id, course_name, course_code, description, subject, level, session_cou
 `
 
 type UpdateCourseParams struct {
-	CourseName    *string        `json:"course_name"`
-	CourseCode    *string        `json:"course_code"`
-	Description   *string        `json:"description"`
-	Subject       *string        `json:"subject"`
-	Level         *string        `json:"level"`
+	CourseName   *string        `json:"course_name"`
+	CourseCode   *string        `json:"course_code"`
+	Description  *string        `json:"description"`
+	Subject      *string        `json:"subject"`
+	Level        *string        `json:"level"`
 	SessionCount *int32         `json:"session_count"`
-	Price         pgtype.Numeric `json:"price"`
-	MaxCapacity   *int32         `json:"max_capacity"`
-	ID            uuid.UUID      `json:"id"`
+	Price        pgtype.Numeric `json:"price"`
+	MaxCapacity  *int32         `json:"max_capacity"`
+	ID           uuid.UUID      `json:"id"`
 }
 
 func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Course, error) {
