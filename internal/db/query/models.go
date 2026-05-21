@@ -24,19 +24,39 @@ type Batch struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type BatchesWithStat struct {
+	ID                  uuid.UUID          `json:"id"`
+	CourseID            uuid.UUID          `json:"course_id"`
+	InstructorUserID    uuid.UUID          `json:"instructor_user_id"`
+	CreatedByUserID     uuid.UUID          `json:"created_by_user_id"`
+	BatchName           string             `json:"batch_name"`
+	BatchCode           string             `json:"batch_code"`
+	StartDate           pgtype.Date        `json:"start_date"`
+	EndDate             pgtype.Date        `json:"end_date"`
+	AcademicYear        *string            `json:"academic_year"`
+	Status              string             `json:"status"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	CourseName          string             `json:"course_name"`
+	CourseCode          string             `json:"course_code"`
+	InstructorFirstName string             `json:"instructor_first_name"`
+	InstructorLastName  string             `json:"instructor_last_name"`
+	EnrolledCount       int64              `json:"enrolled_count"`
+}
+
 type Course struct {
-	ID            uuid.UUID          `json:"id"`
-	CourseName    string             `json:"course_name"`
-	CourseCode    string             `json:"course_code"`
-	Description   *string            `json:"description"`
-	Subject       *string            `json:"subject"`
-	Level         *string            `json:"level"`
+	ID           uuid.UUID          `json:"id"`
+	CourseName   string             `json:"course_name"`
+	CourseCode   string             `json:"course_code"`
+	Description  *string            `json:"description"`
+	Subject      *string            `json:"subject"`
+	Level        *string            `json:"level"`
 	SessionCount *int32             `json:"session_count"`
-	Price         pgtype.Numeric     `json:"price"`
-	MaxCapacity   *int32             `json:"max_capacity"`
-	Status        string             `json:"status"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Price        pgtype.Numeric     `json:"price"`
+	MaxCapacity  *int32             `json:"max_capacity"`
+	Status       string             `json:"status"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type CoursesWithStat struct {
@@ -46,7 +66,7 @@ type CoursesWithStat struct {
 	Description       *string            `json:"description"`
 	Subject           *string            `json:"subject"`
 	Level             *string            `json:"level"`
-	SessionCount     *int32             `json:"session_count"`
+	SessionCount      *int32             `json:"session_count"`
 	Price             pgtype.Numeric     `json:"price"`
 	MaxCapacity       *int32             `json:"max_capacity"`
 	Status            string             `json:"status"`
