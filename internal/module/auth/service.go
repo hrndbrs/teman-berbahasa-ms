@@ -178,6 +178,23 @@ func (s *AuthService) Refresh(ctx context.Context, rawToken string) (*TokenPair,
 	}, nil
 }
 
+func (s *AuthService) GetMe(ctx context.Context, userID string) (*UserInfo, error) {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+	user, err := s.repo.GetUserByID(ctx, id)
+	if err != nil || user.Status != "active" {
+		return nil, ErrInvalidToken
+	}
+	return &UserInfo{
+		ID:        user.ID.String(),
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Role:      user.Role,
+	}, nil
+}
+
 func (s *AuthService) Logout(ctx context.Context, rawToken string) error {
 	row, err := s.repo.GetRefreshTokenByRaw(ctx, rawToken)
 	if errors.Is(err, pgx.ErrNoRows) {

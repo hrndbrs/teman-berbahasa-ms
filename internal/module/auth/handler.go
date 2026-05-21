@@ -31,7 +31,7 @@ func (h *Handler) Register(r chi.Router) {
 }
 
 func (h *Handler) RegisterProtected(r chi.Router) {
-	r.Get("/auth/me", h.me)
+	r.Get("/auth/me", h.getMe)
 }
 
 type loginRequest struct {
@@ -147,6 +147,21 @@ func (h *Handler) resetPassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"message": "Password updated. Please log in again.",
 	})
+}
+
+func (h *Handler) getMe(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+	info, err := h.svc.GetMe(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, ErrInvalidToken) {
+			writeJSON(w, http.StatusUnauthorized, errEnvelope("UNAUTHORIZED", "invalid or expired token"))
+			return
+		}
+		slog.ErrorContext(r.Context(), "get me error", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errEnvelope("INTERNAL_ERROR", "internal server error"))
+		return
+	}
+	writeJSON(w, http.StatusOK, info)
 }
 
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
