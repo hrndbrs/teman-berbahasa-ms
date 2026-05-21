@@ -1590,14 +1590,6 @@ components:
           type: string
         batch_code:
           type: string
-        start_date:
-          type: string
-          format: date
-          nullable: true
-        end_date:
-          type: string
-          format: date
-          nullable: true
         academic_year:
           type: string
           nullable: true
@@ -1645,12 +1637,6 @@ components:
           type: string
         batch_code:
           type: string
-        start_date:
-          type: string
-          format: date
-        end_date:
-          type: string
-          format: date
         academic_year:
           type: string
 
@@ -1664,12 +1650,6 @@ components:
           type: string
         batch_code:
           type: string
-        start_date:
-          type: string
-          format: date
-        end_date:
-          type: string
-          format: date
         academic_year:
           type: string
 
