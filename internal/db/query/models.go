@@ -16,8 +16,6 @@ type Batch struct {
 	CreatedByUserID  uuid.UUID          `json:"created_by_user_id"`
 	BatchName        string             `json:"batch_name"`
 	BatchCode        string             `json:"batch_code"`
-	StartDate        pgtype.Date        `json:"start_date"`
-	EndDate          pgtype.Date        `json:"end_date"`
 	AcademicYear     *string            `json:"academic_year"`
 	Status           string             `json:"status"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
@@ -31,8 +29,6 @@ type BatchesWithStat struct {
 	CreatedByUserID     uuid.UUID          `json:"created_by_user_id"`
 	BatchName           string             `json:"batch_name"`
 	BatchCode           string             `json:"batch_code"`
-	StartDate           pgtype.Date        `json:"start_date"`
-	EndDate             pgtype.Date        `json:"end_date"`
 	AcademicYear        *string            `json:"academic_year"`
 	Status              string             `json:"status"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`

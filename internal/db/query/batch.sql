@@ -30,7 +30,7 @@ SELECT * FROM batches_with_stats WHERE id = sqlc.arg('id');
 -- name: CreateBatch :one
 INSERT INTO batches (
     id, course_id, instructor_user_id, created_by_user_id,
-    batch_name, batch_code, start_date, end_date, academic_year
+    batch_name, batch_code, academic_year
 ) VALUES (
     sqlc.arg('id'),
     sqlc.arg('course_id'),
@@ -38,8 +38,6 @@ INSERT INTO batches (
     sqlc.arg('created_by_user_id'),
     sqlc.arg('batch_name'),
     sqlc.arg('batch_code'),
-    sqlc.narg('start_date'),
-    sqlc.narg('end_date'),
     sqlc.narg('academic_year')
 )
 RETURNING *;
@@ -49,8 +47,6 @@ UPDATE batches SET
     instructor_user_id = COALESCE(sqlc.narg('instructor_user_id'), instructor_user_id),
     batch_name         = COALESCE(sqlc.narg('batch_name'),         batch_name),
     batch_code         = COALESCE(sqlc.narg('batch_code'),         batch_code),
-    start_date         = COALESCE(sqlc.narg('start_date'),         start_date),
-    end_date           = COALESCE(sqlc.narg('end_date'),           end_date),
     academic_year      = COALESCE(sqlc.narg('academic_year'),      academic_year),
     updated_at         = NOW()
 WHERE id = sqlc.arg('id')

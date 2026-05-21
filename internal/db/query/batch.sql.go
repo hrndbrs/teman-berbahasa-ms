@@ -54,7 +54,7 @@ func (q *Queries) CountBatches(ctx context.Context, arg CountBatchesParams) (int
 const createBatch = `-- name: CreateBatch :one
 INSERT INTO batches (
     id, course_id, instructor_user_id, created_by_user_id,
-    batch_name, batch_code, start_date, end_date, academic_year
+    batch_name, batch_code, academic_year
 ) VALUES (
     $1,
     $2,
@@ -62,23 +62,19 @@ INSERT INTO batches (
     $4,
     $5,
     $6,
-    $7,
-    $8,
-    $9
+    $7
 )
-RETURNING id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, start_date, end_date, academic_year, status, created_at, updated_at
+RETURNING id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at
 `
 
 type CreateBatchParams struct {
-	ID               uuid.UUID   `json:"id"`
-	CourseID         uuid.UUID   `json:"course_id"`
-	InstructorUserID uuid.UUID   `json:"instructor_user_id"`
-	CreatedByUserID  uuid.UUID   `json:"created_by_user_id"`
-	BatchName        string      `json:"batch_name"`
-	BatchCode        string      `json:"batch_code"`
-	StartDate        pgtype.Date `json:"start_date"`
-	EndDate          pgtype.Date `json:"end_date"`
-	AcademicYear     *string     `json:"academic_year"`
+	ID               uuid.UUID `json:"id"`
+	CourseID         uuid.UUID `json:"course_id"`
+	InstructorUserID uuid.UUID `json:"instructor_user_id"`
+	CreatedByUserID  uuid.UUID `json:"created_by_user_id"`
+	BatchName        string    `json:"batch_name"`
+	BatchCode        string    `json:"batch_code"`
+	AcademicYear     *string   `json:"academic_year"`
 }
 
 func (q *Queries) CreateBatch(ctx context.Context, arg CreateBatchParams) (Batch, error) {
@@ -89,8 +85,6 @@ func (q *Queries) CreateBatch(ctx context.Context, arg CreateBatchParams) (Batch
 		arg.CreatedByUserID,
 		arg.BatchName,
 		arg.BatchCode,
-		arg.StartDate,
-		arg.EndDate,
 		arg.AcademicYear,
 	)
 	var i Batch
@@ -101,8 +95,6 @@ func (q *Queries) CreateBatch(ctx context.Context, arg CreateBatchParams) (Batch
 		&i.CreatedByUserID,
 		&i.BatchName,
 		&i.BatchCode,
-		&i.StartDate,
-		&i.EndDate,
 		&i.AcademicYear,
 		&i.Status,
 		&i.CreatedAt,
@@ -135,7 +127,7 @@ func (q *Queries) ExistsActiveTeacher(ctx context.Context, id uuid.UUID) (bool, 
 }
 
 const getBatchByID = `-- name: GetBatchByID :one
-SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, start_date, end_date, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count FROM batches_with_stats WHERE id = $1
+SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count FROM batches_with_stats WHERE id = $1
 `
 
 func (q *Queries) GetBatchByID(ctx context.Context, id uuid.UUID) (BatchesWithStat, error) {
@@ -148,8 +140,6 @@ func (q *Queries) GetBatchByID(ctx context.Context, id uuid.UUID) (BatchesWithSt
 		&i.CreatedByUserID,
 		&i.BatchName,
 		&i.BatchCode,
-		&i.StartDate,
-		&i.EndDate,
 		&i.AcademicYear,
 		&i.Status,
 		&i.CreatedAt,
@@ -164,7 +154,7 @@ func (q *Queries) GetBatchByID(ctx context.Context, id uuid.UUID) (BatchesWithSt
 }
 
 const listBatches = `-- name: ListBatches :many
-SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, start_date, end_date, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count FROM batches_with_stats
+SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count FROM batches_with_stats
 WHERE
     ($1::text    IS NULL OR status    = $1) AND
     ($2::uuid IS NULL OR course_id = $2) AND
@@ -208,8 +198,6 @@ func (q *Queries) ListBatches(ctx context.Context, arg ListBatchesParams) ([]Bat
 			&i.CreatedByUserID,
 			&i.BatchName,
 			&i.BatchCode,
-			&i.StartDate,
-			&i.EndDate,
 			&i.AcademicYear,
 			&i.Status,
 			&i.CreatedAt,
@@ -235,20 +223,16 @@ UPDATE batches SET
     instructor_user_id = COALESCE($1, instructor_user_id),
     batch_name         = COALESCE($2,         batch_name),
     batch_code         = COALESCE($3,         batch_code),
-    start_date         = COALESCE($4,         start_date),
-    end_date           = COALESCE($5,           end_date),
-    academic_year      = COALESCE($6,      academic_year),
+    academic_year      = COALESCE($4,      academic_year),
     updated_at         = NOW()
-WHERE id = $7
-RETURNING id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, start_date, end_date, academic_year, status, created_at, updated_at
+WHERE id = $5
+RETURNING id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at
 `
 
 type UpdateBatchParams struct {
 	InstructorUserID pgtype.UUID `json:"instructor_user_id"`
 	BatchName        *string     `json:"batch_name"`
 	BatchCode        *string     `json:"batch_code"`
-	StartDate        pgtype.Date `json:"start_date"`
-	EndDate          pgtype.Date `json:"end_date"`
 	AcademicYear     *string     `json:"academic_year"`
 	ID               uuid.UUID   `json:"id"`
 }
@@ -258,8 +242,6 @@ func (q *Queries) UpdateBatch(ctx context.Context, arg UpdateBatchParams) (Batch
 		arg.InstructorUserID,
 		arg.BatchName,
 		arg.BatchCode,
-		arg.StartDate,
-		arg.EndDate,
 		arg.AcademicYear,
 		arg.ID,
 	)
@@ -271,8 +253,6 @@ func (q *Queries) UpdateBatch(ctx context.Context, arg UpdateBatchParams) (Batch
 		&i.CreatedByUserID,
 		&i.BatchName,
 		&i.BatchCode,
-		&i.StartDate,
-		&i.EndDate,
 		&i.AcademicYear,
 		&i.Status,
 		&i.CreatedAt,
