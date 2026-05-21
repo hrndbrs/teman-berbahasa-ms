@@ -2,7 +2,6 @@ package batch
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -17,21 +16,6 @@ type pgBatchRepository struct {
 
 func NewRepository(pool *pgxpool.Pool) *pgBatchRepository {
 	return &pgBatchRepository{q: dbq.New(pool)}
-}
-
-func toPgtypeDate(t *time.Time) pgtype.Date {
-	if t == nil {
-		return pgtype.Date{}
-	}
-	return pgtype.Date{Time: *t, Valid: true}
-}
-
-func fromPgtypeDate(d pgtype.Date) *time.Time {
-	if !d.Valid {
-		return nil
-	}
-	t := d.Time
-	return &t
 }
 
 func toPgtypeUUID(id *uuid.UUID) pgtype.UUID {
@@ -50,8 +34,6 @@ func rowToBatchWithDetails(row dbq.BatchesWithStat) BatchWithDetails {
 			CreatedByUserID:  row.CreatedByUserID,
 			BatchName:        row.BatchName,
 			BatchCode:        row.BatchCode,
-			StartDate:        fromPgtypeDate(row.StartDate),
-			EndDate:          fromPgtypeDate(row.EndDate),
 			AcademicYear:     row.AcademicYear,
 			Status:           row.Status,
 			CreatedAt:        row.CreatedAt.Time,
@@ -108,8 +90,6 @@ func (r *pgBatchRepository) Create(ctx context.Context, id uuid.UUID, req Create
 		CreatedByUserID:  req.CreatedByUserID,
 		BatchName:        req.BatchName,
 		BatchCode:        req.BatchCode,
-		StartDate:        toPgtypeDate(req.StartDate),
-		EndDate:          toPgtypeDate(req.EndDate),
 		AcademicYear:     req.AcademicYear,
 	})
 	if err != nil {
@@ -123,8 +103,6 @@ func (r *pgBatchRepository) Update(ctx context.Context, id uuid.UUID, req Update
 		InstructorUserID: toPgtypeUUID(req.InstructorUserID),
 		BatchName:        req.BatchName,
 		BatchCode:        req.BatchCode,
-		StartDate:        toPgtypeDate(req.StartDate),
-		EndDate:          toPgtypeDate(req.EndDate),
 		AcademicYear:     req.AcademicYear,
 		ID:               id,
 	})

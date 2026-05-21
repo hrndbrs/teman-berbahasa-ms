@@ -44,8 +44,6 @@ type createBatchReq struct {
 	InstructorUserID string  `json:"instructor_user_id" validate:"required,uuid"`
 	BatchName        string  `json:"batch_name"         validate:"required"`
 	BatchCode        string  `json:"batch_code"         validate:"required"`
-	StartDate        *string `json:"start_date"`
-	EndDate          *string `json:"end_date"`
 	AcademicYear     *string `json:"academic_year"`
 }
 
@@ -53,8 +51,6 @@ type updateBatchReq struct {
 	InstructorUserID *string `json:"instructor_user_id" validate:"omitempty,uuid"`
 	BatchName        *string `json:"batch_name"`
 	BatchCode        *string `json:"batch_code"`
-	StartDate        *string `json:"start_date"`
-	EndDate          *string `json:"end_date"`
 	AcademicYear     *string `json:"academic_year"`
 }
 
@@ -80,8 +76,6 @@ type batchResp struct {
 	ID            string        `json:"id"`
 	BatchName     string        `json:"batch_name"`
 	BatchCode     string        `json:"batch_code"`
-	StartDate     *string       `json:"start_date"`
-	EndDate       *string       `json:"end_date"`
 	AcademicYear  *string       `json:"academic_year"`
 	Status        string        `json:"status"`
 	Course        courseRef     `json:"course"`
@@ -102,8 +96,6 @@ func toBatchResp(b BatchWithDetails) batchResp {
 		ID:           b.ID.String(),
 		BatchName:    b.BatchName,
 		BatchCode:    b.BatchCode,
-		StartDate:    formatDate(b.StartDate),
-		EndDate:      formatDate(b.EndDate),
 		AcademicYear: b.AcademicYear,
 		Status:       b.Status,
 		Course: courseRef{
@@ -199,8 +191,6 @@ func (h *Handler) createBatch(w http.ResponseWriter, r *http.Request) {
 		CreatedByUserID:  createdByID,
 		BatchName:        req.BatchName,
 		BatchCode:        req.BatchCode,
-		StartDate:        parseDate(req.StartDate),
-		EndDate:          parseDate(req.EndDate),
 		AcademicYear:     req.AcademicYear,
 	})
 	if err != nil {
@@ -228,8 +218,6 @@ func (h *Handler) updateBatch(w http.ResponseWriter, r *http.Request) {
 	updateReq := UpdateBatchRequest{
 		BatchName:    req.BatchName,
 		BatchCode:    req.BatchCode,
-		StartDate:    parseDate(req.StartDate),
-		EndDate:      parseDate(req.EndDate),
 		AcademicYear: req.AcademicYear,
 	}
 	if req.InstructorUserID != nil {
@@ -305,25 +293,6 @@ func (h *Handler) deleteBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-func parseDate(s *string) *time.Time {
-	if s == nil {
-		return nil
-	}
-	t, err := time.Parse("2006-01-02", *s)
-	if err != nil {
-		return nil
-	}
-	return &t
-}
-
-func formatDate(t *time.Time) *string {
-	if t == nil {
-		return nil
-	}
-	s := t.Format("2006-01-02")
-	return &s
-}
 
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {

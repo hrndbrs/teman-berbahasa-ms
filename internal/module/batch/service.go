@@ -39,8 +39,6 @@ type Batch struct {
 	CreatedByUserID  uuid.UUID
 	BatchName        string
 	BatchCode        string
-	StartDate        *time.Time
-	EndDate          *time.Time
 	AcademicYear     *string
 	Status           string
 	CreatedAt        time.Time
@@ -88,8 +86,6 @@ type CreateBatchRequest struct {
 	CreatedByUserID  uuid.UUID
 	BatchName        string
 	BatchCode        string
-	StartDate        *time.Time
-	EndDate          *time.Time
 	AcademicYear     *string
 }
 
@@ -97,8 +93,6 @@ type UpdateBatchRequest struct {
 	InstructorUserID *uuid.UUID
 	BatchName        *string
 	BatchCode        *string
-	StartDate        *time.Time
-	EndDate          *time.Time
 	AcademicYear     *string
 }
 
