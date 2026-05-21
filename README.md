@@ -137,8 +137,7 @@ Missing required vars cause immediate startup failure — nothing is silently de
 
 ```bash
 # Generate RS256 key pair (first time only)
-openssl genrsa -out keys/private.pem 2048
-openssl rsa -in keys/private.pem -pubout -out keys/public.pem
+make keys
 
 # Apply migrations
 migrate -path internal/db/migrations -database "$DATABASE_URL" up
