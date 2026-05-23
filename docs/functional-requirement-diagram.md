@@ -253,8 +253,7 @@ func ValidateBatchTransition(current, next BatchStatus) error
 - `GET /enrollments` — filter by `batch_id`, `student_id`, `status`, `payment_status`
 - `POST /enrollments`
 - `GET /enrollments/:id`
-- `PATCH /enrollments/:id`
-- `DELETE /enrollments/:id` — soft drop only
+- `PATCH /enrollments/:id` — use `status: "dropped"` to drop; record preserved for audit
 
 **Business rules:**
 

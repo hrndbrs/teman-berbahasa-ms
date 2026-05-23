@@ -178,7 +178,7 @@ All error responses use this shape regardless of status code.
     "message": "Request validation failed",
     "fields": {
       "email": "must be a valid email address",
-      "start_date": "must be before end_date"
+      "batch_code": "field is required"
     }
   }
 }
@@ -514,20 +514,20 @@ Sets `status = inactive`. No body.
 
 ### DB Table: `courses`
 
-| Column           | Type          | Nullable | Rationale                                                                                                  |
-| ---------------- | ------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
-| `id`             | UUID v7       | No       | PK                                                                                                         |
-| `course_name`    | VARCHAR(200)  | No       | Display name.                                                                                              |
-| `course_code`    | VARCHAR(20)   | No       | Short code used in batch naming and references. Globally unique. Uppercase alphanumeric.                   |
-| `description`    | TEXT          | Yes      | Extended description shown in course detail view.                                                          |
-| `subject`        | VARCHAR(100)  | Yes      | Subject area (e.g. "Mathematics", "English"). Useful for filtering.                                        |
-| `level`          | ENUM          | Yes      | Difficulty level — drives UI badge color and filtering.                                                    |
-| `session_count`  | INT           | Yes      | Maximum number of scheduled sessions per batch of this course. Enforced when adding sessions to a batch's calendar. |
-| `price`          | NUMERIC(12,2) | Yes      | Course fee in IDR. Stored as fixed-point, not float.                                                       |
-| `max_capacity`   | INT           | Yes      | Maximum students per batch of this course. Enforced at enrollment.                                         |
-| `status`         | ENUM          | No       | `archived` courses are hidden from create-batch flows but preserved for historical data. Default `active`. |
-| `created_at`     | TIMESTAMPTZ   | No       | —                                                                                                          |
-| `updated_at`     | TIMESTAMPTZ   | No       | —                                                                                                          |
+| Column          | Type          | Nullable | Rationale                                                                                                           |
+| --------------- | ------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `id`            | UUID v7       | No       | PK                                                                                                                  |
+| `course_name`   | VARCHAR(200)  | No       | Display name.                                                                                                       |
+| `course_code`   | VARCHAR(20)   | No       | Short code used in batch naming and references. Globally unique. Uppercase alphanumeric.                            |
+| `description`   | TEXT          | Yes      | Extended description shown in course detail view.                                                                   |
+| `subject`       | VARCHAR(100)  | Yes      | Subject area (e.g. "Mathematics", "English"). Useful for filtering.                                                 |
+| `level`         | ENUM          | Yes      | Difficulty level — drives UI badge color and filtering.                                                             |
+| `session_count` | INT           | Yes      | Maximum number of scheduled sessions per batch of this course. Enforced when adding sessions to a batch's calendar. |
+| `price`         | NUMERIC(12,2) | Yes      | Course fee in IDR. Stored as fixed-point, not float.                                                                |
+| `max_capacity`  | INT           | Yes      | Maximum students per batch of this course. Enforced at enrollment.                                                  |
+| `status`        | ENUM          | No       | `archived` courses are hidden from create-batch flows but preserved for historical data. Default `active`.          |
+| `created_at`    | TIMESTAMPTZ   | No       | —                                                                                                                   |
+| `updated_at`    | TIMESTAMPTZ   | No       | —                                                                                                                   |
 
 **Relationships:**
 
@@ -681,9 +681,7 @@ No request body.
 | `created_by_user_id` | UUID         | No       | FK → users. Audit trail — who created the batch. Server-set from JWT claims, not from request body.                                            |
 | `batch_name`         | VARCHAR(200) | No       | Human-readable name, e.g. "Matematika Dasar Batch 3".                                                                                          |
 | `batch_code`         | VARCHAR(20)  | No       | Short code unique per course, e.g. "B003". Unique constraint: `(course_id, batch_code)`.                                                       |
-| `start_date`         | DATE         | Yes      | When the batch starts. Does not auto-transition status — status is manually managed.                                                           |
-| `end_date`           | DATE         | Yes      | When the batch ends. Informational only.                                                                                                       |
-| `academic_year`      | VARCHAR(10)  | Yes      | e.g. "2025/2026". Used for filtering and grouping.                                                                                             |
+| `academic_year`      | VARCHAR(10)  | Yes      | e.g. "2025/2026". Used for filtering and grouping. Date range is derived from schedules (MIN/MAX of effective dates), not stored on the batch. |
 | `status`             | ENUM         | No       | Explicit state machine: `upcoming → ongoing → completed`. No reversals. Default `upcoming`.                                                    |
 | `created_at`         | TIMESTAMPTZ  | No       | —                                                                                                                                              |
 | `updated_at`         | TIMESTAMPTZ  | No       | —                                                                                                                                              |
@@ -711,8 +709,6 @@ No request body.
       "batch_name": "Matematika Dasar Batch 3",
       "batch_code": "B003",
       "academic_year": "2025/2026",
-      "start_date": "2025-02-01",
-      "end_date": "2025-05-01",
       "status": "ongoing",
       "course": {
         "id": "019687a2-0002-7000-8000-000000000001",
@@ -762,8 +758,6 @@ No request body.
   "instructor_user_id": "019687a2-0001-7000-8000-000000000001",
   "batch_name": "Matematika Dasar Batch 3",
   "batch_code": "B003",
-  "start_date": "2025-02-01",
-  "end_date": "2025-05-01",
   "academic_year": "2025/2026"
 }
 ```
@@ -788,7 +782,7 @@ No request body.
 {
   "instructor_user_id": "019687a2-0001-7000-8000-000000000002",
   "batch_name": "Matematika Dasar Batch 3 (Sore)",
-  "start_date": "2025-02-15"
+  "academic_year": "2025/2026"
 }
 ```
 
@@ -884,8 +878,7 @@ No request body.
       "course": {
         "id": "019687a2-0002-7000-8000-000000000001",
         "course_name": "Matematika Dasar",
-        "course_code": "MTK01",
-        "level": "beginner"
+        "course_code": "MTK01"
       },
       "created_at": "2025-01-10T04:00:00Z",
       "updated_at": "2025-01-10T04:00:00Z"
@@ -909,12 +902,11 @@ No request body.
 ```json
 {
   "student_id": "019687a2-0004-7000-8000-000000000001",
-  "batch_id": "019687a2-0003-7000-8000-000000000001",
-  "enrollment_date": "2025-01-10"
+  "batch_id": "019687a2-0003-7000-8000-000000000001"
 }
 ```
 
-> `course_id` is not accepted from client — server derives it from `batch.course_id`.
+> `course_id` is not accepted from client — server derives it from `batch.course_id`. `enrollment_date` defaults to today server-side.
 
 **Response `201`:** Full enrollment object.
 

@@ -43,18 +43,18 @@
 
 ### COURSE
 
-| Column           | Type    | Constraint                             |
-| ---------------- | ------- | -------------------------------------- |
-| `course_id`      | INT     | PK                                     |
-| `course_name`    | VARCHAR | NOT NULL                               |
-| `course_code`    | VARCHAR | UNIQUE, NOT NULL                       |
-| `description`    | TEXT    |                                        |
-| `subject`        | VARCHAR |                                        |
-| `level`          | ENUM    | `beginner`, `intermediate`, `advanced` |
-| `session_count`  | INT     |                                        |
-| `price`          | DECIMAL |                                        |
-| `max_capacity`   | INT     |                                        |
-| `status`         | ENUM    | `active`, `archived`                   |
+| Column          | Type    | Constraint                             |
+| --------------- | ------- | -------------------------------------- |
+| `course_id`     | INT     | PK                                     |
+| `course_name`   | VARCHAR | NOT NULL                               |
+| `course_code`   | VARCHAR | UNIQUE, NOT NULL                       |
+| `description`   | TEXT    |                                        |
+| `subject`       | VARCHAR |                                        |
+| `level`         | ENUM    | `beginner`, `intermediate`, `advanced` |
+| `session_count` | INT     |                                        |
+| `price`         | DECIMAL |                                        |
+| `max_capacity`  | INT     |                                        |
+| `status`        | ENUM    | `active`, `archived`                   |
 
 ---
 
@@ -70,8 +70,6 @@
 | `created_by_user_id` | INT     | FK → USER — who created this batch                |
 | `batch_name`         | VARCHAR | NOT NULL                                          |
 | `batch_code`         | VARCHAR | NOT NULL                                          |
-| `start_date`         | DATE    |                                                   |
-| `end_date`           | DATE    |                                                   |
 | `academic_year`      | VARCHAR |                                                   |
 | `status`             | ENUM    | `upcoming`, `ongoing`, `completed`                |
 
