@@ -112,6 +112,23 @@ func (q *Queries) DeleteBatch(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteBatchIfEmpty = `-- name: DeleteBatchIfEmpty :one
+DELETE FROM batches
+WHERE id = $1
+  AND NOT EXISTS (
+      SELECT 1 FROM enrollments
+      WHERE batch_id = $1
+        AND status != 'dropped'
+  )
+RETURNING id
+`
+
+func (q *Queries) DeleteBatchIfEmpty(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, deleteBatchIfEmpty, id)
+	err := row.Scan(&id)
+	return id, err
+}
+
 const existsActiveTeacher = `-- name: ExistsActiveTeacher :one
 SELECT EXISTS(
     SELECT 1 FROM users

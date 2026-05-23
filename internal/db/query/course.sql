@@ -34,18 +34,21 @@ SELECT
   c.session_count, c.price, c.max_capacity, c.status, c.created_at, c.updated_at,
   COUNT(b.id)::bigint                                       AS batch_count,
   COUNT(b.id) FILTER (WHERE b.status = 'ongoing')::bigint   AS ongoing_batch_count,
-  COALESCE((
-    SELECT COUNT(*)::bigint
-    FROM enrollments e
-    WHERE e.course_id = c.id AND e.status != 'dropped'
-  ), 0)                                                      AS enrolled_count
+  COALESCE(ec.enrolled_count, 0)                            AS enrolled_count
 FROM courses c
 LEFT JOIN batches b ON b.course_id = c.id
+LEFT JOIN (
+    SELECT course_id,
+           COUNT(*) FILTER (WHERE status != 'dropped')::bigint AS enrolled_count
+    FROM enrollments
+    GROUP BY course_id
+) ec ON ec.course_id = c.id
 WHERE c.id = sqlc.arg('id')
 GROUP BY
   c.id, c.course_name, c.course_code, c.description, c.subject,
   c.level, c.session_count, c.price, c.max_capacity, c.status,
-  c.created_at, c.updated_at;
+  c.created_at, c.updated_at,
+  ec.enrolled_count;
 
 -- name: CreateCourse :one
 INSERT INTO courses (id, course_name, course_code, description, subject, level, session_count, price, max_capacity)
@@ -81,6 +84,11 @@ UPDATE courses SET
   status     = 'archived',
   updated_at = NOW()
 WHERE id = sqlc.arg('id')
+  AND status = 'active'
+  AND NOT EXISTS (
+      SELECT 1 FROM batches
+      WHERE course_id = sqlc.arg('id') AND status = 'ongoing'
+  )
 RETURNING id, status, updated_at;
 
 -- name: CountOngoingBatchesByCourse :one

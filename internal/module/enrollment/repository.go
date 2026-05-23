@@ -104,15 +104,7 @@ func listRowToEnrollment(row dbq.ListEnrollmentsRow) Enrollment {
 func (r *pgEnrollmentRepository) List(ctx context.Context, params ListParams) ([]Enrollment, int64, error) {
 	offset := int32((params.Page - 1) * params.PerPage)
 
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
-	if err != nil {
-		return nil, 0, err
-	}
-	defer tx.Rollback(ctx) //nolint:errcheck
-
-	txq := r.q.WithTx(tx)
-
-	rows, err := txq.ListEnrollments(ctx, dbq.ListEnrollmentsParams{
+	rows, err := r.q.ListEnrollments(ctx, dbq.ListEnrollmentsParams{
 		BatchID:       toPgtypeUUID(params.BatchID),
 		StudentID:     toPgtypeUUID(params.StudentID),
 		Status:        params.Status,
@@ -123,17 +115,13 @@ func (r *pgEnrollmentRepository) List(ctx context.Context, params ListParams) ([
 	if err != nil {
 		return nil, 0, err
 	}
-	total, err := txq.CountEnrollments(ctx, dbq.CountEnrollmentsParams{
+	total, err := r.q.CountEnrollments(ctx, dbq.CountEnrollmentsParams{
 		BatchID:       toPgtypeUUID(params.BatchID),
 		StudentID:     toPgtypeUUID(params.StudentID),
 		Status:        params.Status,
 		PaymentStatus: params.PaymentStatus,
 	})
 	if err != nil {
-		return nil, 0, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
 		return nil, 0, err
 	}
 
@@ -244,19 +232,30 @@ func (r *pgEnrollmentRepository) Update(ctx context.Context, id uuid.UUID, req U
 		return Enrollment{}, err
 	}
 
-	txq := r.q.WithTx(tx)
+	finalGrade := cur.FinalGrade
+	if req.FinalGrade.Set() {
+		if req.FinalGrade.IsNull {
+			finalGrade = nil
+		} else {
+			finalGrade = req.FinalGrade.Value
+		}
+	}
 
-	_, err = txq.UpdateEnrollment(ctx, dbq.UpdateEnrollmentParams{
-		Status:        req.Status,
-		PaymentStatus: req.PaymentStatus,
-		FinalGrade:    req.FinalGrade,
-		ID:            id,
-	})
+	_, err = tx.Exec(ctx,
+		`UPDATE enrollments SET
+			status        = COALESCE($1::text, status),
+			payment_status = COALESCE($2::text, payment_status),
+			final_grade   = $3::text,
+			updated_at    = NOW()
+		WHERE id = $4`,
+		req.Status, req.PaymentStatus, finalGrade, id,
+	)
 	if err != nil {
 		return Enrollment{}, err
 	}
 
 	// Fetch full enrollment with joins inside the transaction.
+	txq := r.q.WithTx(tx)
 	row, err := txq.GetEnrollmentByID(ctx, id)
 	if err != nil {
 		return Enrollment{}, err

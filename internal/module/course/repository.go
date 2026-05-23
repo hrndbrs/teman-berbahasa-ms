@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -12,11 +13,12 @@ import (
 )
 
 type pgCourseRepository struct {
-	q *dbq.Queries
+	pool *pgxpool.Pool
+	q    *dbq.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) *pgCourseRepository {
-	return &pgCourseRepository{q: dbq.New(pool)}
+	return &pgCourseRepository{pool: pool, q: dbq.New(pool)}
 }
 
 func numericToString(n pgtype.Numeric) *string {
@@ -73,6 +75,24 @@ func rowToCourse(row dbq.Course) Course {
 		CreatedAt:     row.CreatedAt.Time,
 		UpdatedAt:     row.UpdatedAt.Time,
 	}
+}
+
+func scanCourseRow(row pgx.Row) (Course, error) {
+	var c Course
+	var createdAt, updatedAt pgtype.Timestamptz
+	var price pgtype.Numeric
+	err := row.Scan(
+		&c.ID, &c.CourseName, &c.CourseCode, &c.Description, &c.Subject,
+		&c.Level, &c.SessionCount, &price, &c.MaxCapacity,
+		&c.Status, &createdAt, &updatedAt,
+	)
+	if err != nil {
+		return Course{}, err
+	}
+	c.Price = numericToString(price)
+	c.CreatedAt = createdAt.Time
+	c.UpdatedAt = updatedAt.Time
+	return c, nil
 }
 
 func listRowToCourseWithStats(row dbq.CoursesWithStat) CourseWithStats {
@@ -171,22 +191,24 @@ func (r *pgCourseRepository) Create(ctx context.Context, id uuid.UUID, req Creat
 	return rowToCourse(row), nil
 }
 
-func (r *pgCourseRepository) Update(ctx context.Context, id uuid.UUID, req UpdateCourseRequest) (Course, error) {
-	row, err := r.q.UpdateCourse(ctx, dbq.UpdateCourseParams{
-		CourseName:    req.CourseName,
-		CourseCode:    req.CourseCode,
-		Description:   req.Description,
-		Subject:       req.Subject,
-		Level:         req.Level,
-		SessionCount: req.SessionCount,
-		Price:         stringToNumeric(req.Price),
-		MaxCapacity:   req.MaxCapacity,
-		ID:            id,
-	})
-	if err != nil {
-		return Course{}, err
-	}
-	return rowToCourse(row), nil
+func (r *pgCourseRepository) UpdateFull(ctx context.Context, id uuid.UUID, req FullCourseUpdate) (Course, error) {
+	row := r.pool.QueryRow(ctx,
+		`UPDATE courses SET
+			course_name    = $1,
+			course_code    = $2,
+			description    = $3,
+			subject        = $4,
+			level          = $5,
+			session_count = $6,
+			price          = $7,
+			max_capacity   = $8,
+			updated_at     = NOW()
+		WHERE id = $9
+		RETURNING id, course_name, course_code, description, subject, level, session_count, price, max_capacity, status, created_at, updated_at`,
+		req.CourseName, req.CourseCode, req.Description, req.Subject,
+		req.Level, req.SessionCount, stringToNumeric(req.Price), req.MaxCapacity, id,
+	)
+	return scanCourseRow(row)
 }
 
 func (r *pgCourseRepository) Archive(ctx context.Context, id uuid.UUID) (ArchiveResult, error) {
@@ -201,6 +223,4 @@ func (r *pgCourseRepository) Archive(ctx context.Context, id uuid.UUID) (Archive
 	}, nil
 }
 
-func (r *pgCourseRepository) CountOngoingBatches(ctx context.Context, courseID uuid.UUID) (int64, error) {
-	return r.q.CountOngoingBatchesByCourse(ctx, courseID)
-}
+

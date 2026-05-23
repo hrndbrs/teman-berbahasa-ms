@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -14,11 +15,12 @@ import (
 )
 
 type pgUserRepository struct {
-	q *dbq.Queries
+	q    *dbq.Queries
+	pool *pgxpool.Pool
 }
 
 func NewRepository(pool *pgxpool.Pool) *pgUserRepository {
-	return &pgUserRepository{q: dbq.New(pool)}
+	return &pgUserRepository{q: dbq.New(pool), pool: pool}
 }
 
 func hashToken(raw string) string {
@@ -117,30 +119,40 @@ func (r *pgUserRepository) CreateUser(ctx context.Context, id uuid.UUID, req Cre
 	}, nil
 }
 
-func (r *pgUserRepository) UpdateUser(ctx context.Context, id uuid.UUID, req UpdateUserRequest) (User, error) {
-	row, err := r.q.UpdateUser(ctx, dbq.UpdateUserParams{
-		ID:        id,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Email:     req.Email,
-		Role:      req.Role,
-		Phone:     req.Phone,
-		Status:    req.Status,
-	})
+func scanUserRow(row pgx.Row) (User, error) {
+	var u User
+	var createdAt, updatedAt pgtype.Timestamptz
+	err := row.Scan(
+		&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role,
+		&u.Phone, &u.Status, &createdAt, &updatedAt,
+	)
 	if err != nil {
 		return User{}, err
 	}
-	return User{
-		ID:        row.ID,
-		FirstName: row.FirstName,
-		LastName:  row.LastName,
-		Email:     row.Email,
-		Role:      row.Role,
-		Phone:     row.Phone,
-		Status:    row.Status,
-		CreatedAt: row.CreatedAt.Time,
-		UpdatedAt: row.UpdatedAt.Time,
-	}, nil
+	u.CreatedAt = createdAt.Time
+	u.UpdatedAt = updatedAt.Time
+	return u, nil
+}
+
+func (r *pgUserRepository) UpdateUser(ctx context.Context, id uuid.UUID, req FullUserUpdate) (User, error) {
+	var phone pgtype.Text
+	if req.Phone != nil {
+		phone = pgtype.Text{String: *req.Phone, Valid: true}
+	}
+	row := r.pool.QueryRow(ctx,
+		`UPDATE users SET
+			first_name = $1,
+			last_name  = $2,
+			email      = $3,
+			role       = $4,
+			phone      = $5,
+			status     = $6,
+			updated_at = NOW()
+		WHERE id = $7
+		RETURNING id, first_name, last_name, email, role, phone, status, created_at, updated_at`,
+		req.FirstName, req.LastName, req.Email, req.Role, phone, req.Status, id,
+	)
+	return scanUserRow(row)
 }
 
 func (r *pgUserRepository) InsertPasswordResetToken(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) error {

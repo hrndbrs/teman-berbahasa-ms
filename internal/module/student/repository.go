@@ -165,8 +165,8 @@ func (r *pgStudentRepository) Create(ctx context.Context, id uuid.UUID, req Crea
 	return rowToStudent(row), nil
 }
 
-func (r *pgStudentRepository) Update(ctx context.Context, id uuid.UUID, req UpdateStudentRequest) (Student, error) {
-	row, err := r.q.UpdateStudent(ctx, dbq.UpdateStudentParams{
+func (r *pgStudentRepository) Update(ctx context.Context, id uuid.UUID, req FullStudentUpdate) (Student, error) {
+	row, err := r.q.UpdateStudentFull(ctx, dbq.UpdateStudentFullParams{
 		ID:          id,
 		FirstName:   req.FirstName,
 		LastName:    req.LastName,

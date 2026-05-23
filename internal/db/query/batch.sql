@@ -62,6 +62,16 @@ RETURNING id, status, updated_at;
 -- name: DeleteBatch :exec
 DELETE FROM batches WHERE id = sqlc.arg('id');
 
+-- name: DeleteBatchIfEmpty :one
+DELETE FROM batches
+WHERE id = @id
+  AND NOT EXISTS (
+      SELECT 1 FROM enrollments
+      WHERE batch_id = @id
+        AND status != 'dropped'
+  )
+RETURNING id;
+
 -- name: CountActiveEnrollments :one
 SELECT COUNT(*)::bigint
 FROM enrollments

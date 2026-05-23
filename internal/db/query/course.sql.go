@@ -17,6 +17,11 @@ UPDATE courses SET
   status     = 'archived',
   updated_at = NOW()
 WHERE id = $1
+  AND status = 'active'
+  AND NOT EXISTS (
+      SELECT 1 FROM batches
+      WHERE course_id = $1 AND status = 'ongoing'
+  )
 RETURNING id, status, updated_at
 `
 
