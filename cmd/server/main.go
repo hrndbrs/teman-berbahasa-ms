@@ -20,6 +20,7 @@ import (
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/auth"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/batch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/course"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/enrollment"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/health"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/student"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/user"
@@ -88,6 +89,10 @@ func main() {
 	batchSvc := batch.NewService(batchRepo)
 	batchHandler := batch.NewHandler(batchSvc)
 
+	enrollmentRepo := enrollment.NewRepository(pool)
+	enrollmentSvc := enrollment.NewService(enrollmentRepo)
+	enrollmentHandler := enrollment.NewHandler(enrollmentSvc)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
@@ -108,6 +113,7 @@ func main() {
 		studentHandler.Register(r)
 		courseHandler.Register(r)
 		batchHandler.Register(r)
+		enrollmentHandler.Register(r)
 	})
 
 	srv := &http.Server{
