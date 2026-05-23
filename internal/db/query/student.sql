@@ -53,7 +53,8 @@ FROM enrollments e
 JOIN batches b ON e.batch_id = b.id
 JOIN courses c  ON e.course_id = c.id
 WHERE e.student_id = $1
-ORDER BY e.created_at DESC;
+ORDER BY e.created_at DESC
+LIMIT 50;
 
 -- name: CreateStudent :one
 INSERT INTO students (
@@ -89,5 +90,22 @@ UPDATE students SET
   status        = COALESCE(sqlc.narg('status'),        status),
   updated_at    = NOW()
 WHERE id = sqlc.arg('id')
+RETURNING id, first_name, last_name, email, phone, date_of_birth, gender,
+          address, parent_name, parent_phone, registration_date, status, created_at, updated_at;
+
+-- name: UpdateStudentFull :one
+UPDATE students SET
+  first_name    = @first_name,
+  last_name     = @last_name,
+  email         = @email,
+  phone         = @phone,
+  date_of_birth = @date_of_birth,
+  gender        = @gender,
+  address       = @address,
+  parent_name   = @parent_name,
+  parent_phone  = @parent_phone,
+  status        = @status,
+  updated_at    = NOW()
+WHERE id = @id
 RETURNING id, first_name, last_name, email, phone, date_of_birth, gender,
           address, parent_name, parent_phone, registration_date, status, created_at, updated_at;
