@@ -12,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
@@ -45,12 +46,12 @@ type createUserReq struct {
 }
 
 type updateUserReq struct {
-	FirstName *string `json:"first_name"`
-	LastName  *string `json:"last_name"`
-	Email     *string `json:"email"   validate:"omitempty,email"`
-	Role      *string `json:"role"    validate:"omitempty,oneof=admin teacher staff"`
-	Phone     *string `json:"phone"`
-	Status    *string `json:"status"  validate:"omitempty,oneof=active inactive"`
+	FirstName *string                  `json:"first_name"`
+	LastName  *string                  `json:"last_name"`
+	Email     *string                  `json:"email"   validate:"omitempty,email"`
+	Role      *string                  `json:"role"    validate:"omitempty,oneof=admin teacher staff"`
+	Phone     *patch.Patchable[string] `json:"phone"`
+	Status    *string                  `json:"status"  validate:"omitempty,oneof=active inactive"`
 }
 
 // ── response type ─────────────────────────────────────────────────────────────
@@ -190,7 +191,14 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeJSON(w, http.StatusRequestEntityTooLarge,
+				errEnvelope("REQUEST_TOO_LARGE", "request body exceeds 1MB"))
+			return false
+		}
 		writeJSON(w, http.StatusBadRequest, errEnvelope("BAD_REQUEST", "invalid request body"))
 		return false
 	}

@@ -10,7 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	ipagination "github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
 var (
@@ -79,23 +80,36 @@ type CreateCourseRequest struct {
 }
 
 type UpdateCourseRequest struct {
-	CourseName    *string
-	CourseCode    *string
-	Description   *string
-	Subject       *string
-	Level         *string
+	CourseName *string
+	CourseCode *string
+	Status     *string
+
+	Description  *patch.Patchable[string]
+	Subject      *patch.Patchable[string]
+	Level        *patch.Patchable[string]
+	SessionCount *patch.Patchable[int32]
+	Price        *patch.Patchable[string]
+	MaxCapacity  *patch.Patchable[int32]
+}
+
+type FullCourseUpdate struct {
+	CourseName   string
+	CourseCode   string
+	Description  *string
+	Subject      *string
+	Level        *string
 	SessionCount *int32
-	Price         *string
-	MaxCapacity   *int32
+	Price        *string
+	MaxCapacity  *int32
+	Status       string
 }
 
 type CourseRepository interface {
 	List(ctx context.Context, params ListParams) ([]CourseWithStats, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (CourseWithStats, error)
 	Create(ctx context.Context, id uuid.UUID, req CreateCourseRequest) (Course, error)
-	Update(ctx context.Context, id uuid.UUID, req UpdateCourseRequest) (Course, error)
+	UpdateFull(ctx context.Context, id uuid.UUID, req FullCourseUpdate) (Course, error)
 	Archive(ctx context.Context, id uuid.UUID) (ArchiveResult, error)
-	CountOngoingBatches(ctx context.Context, courseID uuid.UUID) (int64, error)
 }
 
 type CourseService struct {
@@ -117,7 +131,7 @@ func (s *CourseService) List(ctx context.Context, params ListParams) (*ListRespo
 			Page:       params.Page,
 			PerPage:    params.PerPage,
 			Total:      int(total),
-			TotalPages: ipagination.TotalPages(total, params.PerPage),
+			TotalPages: pagination.TotalPages(total, params.PerPage),
 		},
 	}, nil
 }
@@ -155,27 +169,52 @@ func (s *CourseService) Create(ctx context.Context, req CreateCourseRequest) (*C
 	return &c, nil
 }
 
+func MergeCourseUpdate(existing CourseWithStats, req UpdateCourseRequest) FullCourseUpdate {
+	u := FullCourseUpdate{
+		CourseName:   existing.CourseName,
+		CourseCode:   existing.CourseCode,
+		Description:  existing.Description,
+		Subject:      existing.Subject,
+		Level:        existing.Level,
+		SessionCount: existing.SessionCount,
+		Price:        existing.Price,
+		MaxCapacity:  existing.MaxCapacity,
+		Status:       existing.Status,
+	}
+	if req.CourseName != nil {
+		trimmed := strings.TrimSpace(*req.CourseName)
+		u.CourseName = trimmed
+	}
+	if req.CourseCode != nil {
+		trimmed := strings.TrimSpace(*req.CourseCode)
+		u.CourseCode = trimmed
+	}
+	if req.Status != nil {
+		u.Status = *req.Status
+	}
+	u.Description = req.Description.ValueOr(u.Description)
+	u.Subject = req.Subject.ValueOr(u.Subject)
+	u.Level = req.Level.ValueOr(u.Level)
+	u.SessionCount = req.SessionCount.ValueOr(u.SessionCount)
+	u.Price = req.Price.ValueOr(u.Price)
+	u.MaxCapacity = req.MaxCapacity.ValueOr(u.MaxCapacity)
+	return u
+}
+
 func (s *CourseService) Update(ctx context.Context, rawID string, req UpdateCourseRequest) (*Course, error) {
 	id, err := uuid.Parse(rawID)
 	if err != nil {
 		return nil, ErrNotFound
 	}
-	_, err = s.repo.GetByID(ctx, id)
+	existing, err := s.repo.GetByID(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	if req.CourseName != nil {
-		trimmed := strings.TrimSpace(*req.CourseName)
-		req.CourseName = &trimmed
-	}
-	if req.CourseCode != nil {
-		trimmed := strings.TrimSpace(*req.CourseCode)
-		req.CourseCode = &trimmed
-	}
-	c, err := s.repo.Update(ctx, id, req)
+	merged := MergeCourseUpdate(existing, req)
+	c, err := s.repo.UpdateFull(ctx, id, merged)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, ErrCourseCodeConflict
@@ -190,23 +229,9 @@ func (s *CourseService) Archive(ctx context.Context, rawID string) (*ArchiveResu
 	if err != nil {
 		return nil, ErrNotFound
 	}
-	_, err = s.repo.GetByID(ctx, id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	count, err := s.repo.CountOngoingBatches(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, ErrHasOngoingBatches
-	}
 	result, err := s.repo.Archive(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrNotFound
+		return nil, ErrHasOngoingBatches
 	}
 	if err != nil {
 		return nil, err

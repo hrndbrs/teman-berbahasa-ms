@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
@@ -48,10 +49,10 @@ type createBatchReq struct {
 }
 
 type updateBatchReq struct {
-	InstructorUserID *string `json:"instructor_user_id" validate:"omitempty,uuid"`
-	BatchName        *string `json:"batch_name"`
-	BatchCode        *string `json:"batch_code"`
-	AcademicYear     *string `json:"academic_year"`
+	InstructorUserID *string                  `json:"instructor_user_id" validate:"omitempty,uuid"`
+	BatchName        *string                  `json:"batch_name"`
+	BatchCode        *string                  `json:"batch_code"`
+	AcademicYear     *patch.Patchable[string] `json:"academic_year"`
 }
 
 type transitionStatusReq struct {
@@ -294,7 +295,14 @@ func (h *Handler) deleteBatch(w http.ResponseWriter, r *http.Request) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeJSON(w, http.StatusRequestEntityTooLarge,
+				errEnvelope("REQUEST_TOO_LARGE", "request body exceeds 1MB"))
+			return false
+		}
 		writeJSON(w, http.StatusBadRequest, errEnvelope("BAD_REQUEST", "invalid request body"))
 		return false
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
@@ -57,6 +58,17 @@ type updateCourseReq struct {
 	SessionCount *int32  `json:"session_count"`
 	Price         *string `json:"price"`
 	MaxCapacity   *int32  `json:"max_capacity"`
+}
+
+type rawUpdateCourseReq struct {
+	CourseName    *string                   `json:"course_name"`
+	CourseCode    *string                   `json:"course_code"`
+	Description   *patch.Patchable[string]  `json:"description"`
+	Subject       *patch.Patchable[string]  `json:"subject"`
+	Level         *patch.Patchable[string]  `json:"level"`
+	SessionCount  *patch.Patchable[int32]   `json:"session_count"`
+	Price         *patch.Patchable[string]  `json:"price"`
+	MaxCapacity   *patch.Patchable[int32]   `json:"max_capacity"`
 }
 
 // ── response types ────────────────────────────────────────────────────────────
@@ -193,19 +205,21 @@ func (h *Handler) createCourse(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) updateCourse(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req updateCourseReq
-	if !h.decode(w, r, &req) {
+	var rawReq rawUpdateCourseReq
+	if !h.decode(w, r, &rawReq) {
 		return
 	}
+
 	c, err := h.svc.Update(r.Context(), id, UpdateCourseRequest{
-		CourseName:    req.CourseName,
-		CourseCode:    req.CourseCode,
-		Description:   req.Description,
-		Subject:       req.Subject,
-		Level:         req.Level,
-		SessionCount: req.SessionCount,
-		Price:         req.Price,
-		MaxCapacity:   req.MaxCapacity,
+		CourseName: rawReq.CourseName,
+		CourseCode: rawReq.CourseCode,
+
+		Description:  rawReq.Description,
+		Subject:      rawReq.Subject,
+		Level:        rawReq.Level,
+		SessionCount: rawReq.SessionCount,
+		Price:        rawReq.Price,
+		MaxCapacity:  rawReq.MaxCapacity,
 	})
 	if err != nil {
 		switch {
@@ -247,7 +261,14 @@ func (h *Handler) archiveCourse(w http.ResponseWriter, r *http.Request) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeJSON(w, http.StatusRequestEntityTooLarge,
+				errEnvelope("REQUEST_TOO_LARGE", "request body exceeds 1MB"))
+			return false
+		}
 		writeJSON(w, http.StatusBadRequest, errEnvelope("BAD_REQUEST", "invalid request body"))
 		return false
 	}

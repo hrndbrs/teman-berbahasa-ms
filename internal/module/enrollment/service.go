@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	ipagination "github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
@@ -133,7 +134,7 @@ type CreateRequest struct {
 type UpdateRequest struct {
 	Status        *string
 	PaymentStatus *string
-	FinalGrade    *string
+	FinalGrade    *patch.Patchable[string]
 }
 
 type EnrollmentRepository interface {
@@ -235,7 +236,7 @@ func (s *EnrollmentService) Update(ctx context.Context, rawID string, req Update
 	}
 
 	validate := func(cur EnrollmentCurrent) error {
-		if req.FinalGrade != nil && cur.Status != "completed" {
+		if req.FinalGrade.Set() && !req.FinalGrade.IsNull && cur.Status != "completed" {
 			return ErrFinalGradeRequiresCompleted
 		}
 		if req.Status != nil {

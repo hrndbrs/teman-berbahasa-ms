@@ -20,7 +20,7 @@ type mockRepo struct {
 	getUserByEmailFn               func(ctx context.Context, email string) (user.User, error)
 	listUsersFn                    func(ctx context.Context, params user.ListParams) ([]user.User, int64, error)
 	createUserFn                   func(ctx context.Context, id uuid.UUID, req user.CreateUserRequest, passwordHash string) (user.User, error)
-	updateUserFn                   func(ctx context.Context, id uuid.UUID, req user.UpdateUserRequest) (user.User, error)
+	updateUserFn                   func(ctx context.Context, id uuid.UUID, req user.FullUserUpdate) (user.User, error)
 	insertPasswordResetTokenFn     func(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) error
 	deletePasswordResetByUserIDFn  func(ctx context.Context, userID uuid.UUID) error
 	deleteUserSessionsFn           func(ctx context.Context, userID uuid.UUID) error
@@ -50,7 +50,7 @@ func (m *mockRepo) CreateUser(ctx context.Context, id uuid.UUID, req user.Create
 	}
 	return user.User{}, nil
 }
-func (m *mockRepo) UpdateUser(ctx context.Context, id uuid.UUID, req user.UpdateUserRequest) (user.User, error) {
+func (m *mockRepo) UpdateUser(ctx context.Context, id uuid.UUID, req user.FullUserUpdate) (user.User, error) {
 	if m.updateUserFn != nil {
 		return m.updateUserFn(ctx, id, req)
 	}
@@ -196,7 +196,7 @@ func TestUpdateUser_RoleChange_KillsSessions(t *testing.T) {
 		getUserByIDFullFn: func(_ context.Context, _ uuid.UUID) (user.User, error) {
 			return user.User{ID: id, Role: "teacher", Status: "active"}, nil
 		},
-		updateUserFn: func(_ context.Context, _ uuid.UUID, _ user.UpdateUserRequest) (user.User, error) {
+		updateUserFn: func(_ context.Context, _ uuid.UUID, _ user.FullUserUpdate) (user.User, error) {
 			return user.User{ID: id, Role: "admin", Status: "active"}, nil
 		},
 		deleteUserSessionsFn: func(_ context.Context, _ uuid.UUID) error {
@@ -219,7 +219,7 @@ func TestUpdateUser_StatusInactive_KillsSessions(t *testing.T) {
 		getUserByIDFullFn: func(_ context.Context, _ uuid.UUID) (user.User, error) {
 			return user.User{ID: id, Role: "teacher", Status: "active"}, nil
 		},
-		updateUserFn: func(_ context.Context, _ uuid.UUID, _ user.UpdateUserRequest) (user.User, error) {
+		updateUserFn: func(_ context.Context, _ uuid.UUID, _ user.FullUserUpdate) (user.User, error) {
 			return user.User{ID: id, Role: "teacher", Status: "inactive"}, nil
 		},
 		deleteUserSessionsFn: func(_ context.Context, _ uuid.UUID) error {
@@ -242,7 +242,7 @@ func TestUpdateUser_NameChange_NoSessionKill(t *testing.T) {
 		getUserByIDFullFn: func(_ context.Context, _ uuid.UUID) (user.User, error) {
 			return user.User{ID: id, Role: "teacher", Status: "active"}, nil
 		},
-		updateUserFn: func(_ context.Context, _ uuid.UUID, _ user.UpdateUserRequest) (user.User, error) {
+		updateUserFn: func(_ context.Context, _ uuid.UUID, _ user.FullUserUpdate) (user.User, error) {
 			return user.User{ID: id, Role: "teacher", Status: "active"}, nil
 		},
 		deleteUserSessionsFn: func(_ context.Context, _ uuid.UUID) error {

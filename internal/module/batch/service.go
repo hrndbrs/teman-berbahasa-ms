@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	ipagination "github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
@@ -95,6 +96,13 @@ type UpdateBatchRequest struct {
 	InstructorUserID *uuid.UUID
 	BatchName        *string
 	BatchCode        *string
+	AcademicYear     *patch.Patchable[string]
+}
+
+type FullBatchUpdate struct {
+	InstructorUserID uuid.UUID
+	BatchName        string
+	BatchCode        string
 	AcademicYear     *string
 }
 
@@ -102,10 +110,9 @@ type BatchRepository interface {
 	List(ctx context.Context, params ListParams) ([]BatchWithDetails, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (BatchWithDetails, error)
 	Create(ctx context.Context, id uuid.UUID, req CreateBatchRequest) (BatchWithDetails, error)
-	Update(ctx context.Context, id uuid.UUID, req UpdateBatchRequest) (BatchWithDetails, error)
+	Update(ctx context.Context, id uuid.UUID, req FullBatchUpdate) (BatchWithDetails, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) (StatusUpdateResult, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	CountActiveEnrollments(ctx context.Context, batchID uuid.UUID) (int64, error)
 	ExistsActiveTeacher(ctx context.Context, instructorID uuid.UUID) (bool, error)
 }
 
@@ -183,12 +190,32 @@ func (s *BatchService) Create(ctx context.Context, req CreateBatchRequest) (*Bat
 	return &b, nil
 }
 
+func MergeBatchUpdate(existing BatchWithDetails, req UpdateBatchRequest) FullBatchUpdate {
+	u := FullBatchUpdate{
+		InstructorUserID: existing.InstructorUserID,
+		BatchName:        existing.BatchName,
+		BatchCode:        existing.BatchCode,
+		AcademicYear:     existing.AcademicYear,
+	}
+	if req.InstructorUserID != nil {
+		u.InstructorUserID = *req.InstructorUserID
+	}
+	if req.BatchName != nil {
+		u.BatchName = strings.TrimSpace(*req.BatchName)
+	}
+	if req.BatchCode != nil {
+		u.BatchCode = strings.TrimSpace(*req.BatchCode)
+	}
+	u.AcademicYear = req.AcademicYear.ValueOr(u.AcademicYear)
+	return u
+}
+
 func (s *BatchService) Update(ctx context.Context, rawID string, req UpdateBatchRequest) (*BatchWithDetails, error) {
 	id, err := uuid.Parse(rawID)
 	if err != nil {
 		return nil, ErrNotFound
 	}
-	_, err = s.repo.GetByID(ctx, id)
+	existing, err := s.repo.GetByID(ctx, id)
 	if isNoRows(err) {
 		return nil, ErrNotFound
 	}
@@ -204,15 +231,8 @@ func (s *BatchService) Update(ctx context.Context, rawID string, req UpdateBatch
 			return nil, ErrInvalidInstructor
 		}
 	}
-	if req.BatchName != nil {
-		trimmed := strings.TrimSpace(*req.BatchName)
-		req.BatchName = &trimmed
-	}
-	if req.BatchCode != nil {
-		trimmed := strings.TrimSpace(*req.BatchCode)
-		req.BatchCode = &trimmed
-	}
-	b, err := s.repo.Update(ctx, id, req)
+	merged := MergeBatchUpdate(existing, req)
+	b, err := s.repo.Update(ctx, id, merged)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, ErrBatchCodeConflict
@@ -251,20 +271,6 @@ func (s *BatchService) Delete(ctx context.Context, rawID string) error {
 	id, err := uuid.Parse(rawID)
 	if err != nil {
 		return ErrNotFound
-	}
-	_, err = s.repo.GetByID(ctx, id)
-	if isNoRows(err) {
-		return ErrNotFound
-	}
-	if err != nil {
-		return err
-	}
-	count, err := s.repo.CountActiveEnrollments(ctx, id)
-	if err != nil {
-		return err
-	}
-	if count > 0 {
-		return ErrHasActiveEnrollments
 	}
 	return s.repo.Delete(ctx, id)
 }

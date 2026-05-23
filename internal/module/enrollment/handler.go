@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
@@ -43,9 +44,9 @@ type createEnrollmentReq struct {
 }
 
 type updateEnrollmentReq struct {
-	Status        *string `json:"status"         validate:"omitempty,oneof=dropped completed"`
-	PaymentStatus *string `json:"payment_status" validate:"omitempty,oneof=partial paid"`
-	FinalGrade    *string `json:"final_grade"`
+	Status        *string                  `json:"status"         validate:"omitempty,oneof=dropped completed"`
+	PaymentStatus *string                  `json:"payment_status" validate:"omitempty,oneof=partial paid"`
+	FinalGrade    *patch.Patchable[string] `json:"final_grade"`
 }
 
 // ── response types ────────────────────────────────────────────────────────────
@@ -248,7 +249,14 @@ func (h *Handler) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeJSON(w, http.StatusRequestEntityTooLarge,
+				errEnvelope("REQUEST_TOO_LARGE", "request body exceeds 1MB"))
+			return false
+		}
 		writeJSON(w, http.StatusBadRequest, errEnvelope("BAD_REQUEST", "invalid request body"))
 		return false
 	}

@@ -16,12 +16,11 @@ import (
 // ── mock ──────────────────────────────────────────────────────────────────────
 
 type mockRepo struct {
-	listFn                func(ctx context.Context, params course.ListParams) ([]course.CourseWithStats, int64, error)
-	getByIDFn             func(ctx context.Context, id uuid.UUID) (course.CourseWithStats, error)
-	createFn              func(ctx context.Context, id uuid.UUID, req course.CreateCourseRequest) (course.Course, error)
-	updateFn              func(ctx context.Context, id uuid.UUID, req course.UpdateCourseRequest) (course.Course, error)
-	archiveFn             func(ctx context.Context, id uuid.UUID) (course.ArchiveResult, error)
-	countOngoingBatchesFn func(ctx context.Context, courseID uuid.UUID) (int64, error)
+	listFn    func(ctx context.Context, params course.ListParams) ([]course.CourseWithStats, int64, error)
+	getByIDFn func(ctx context.Context, id uuid.UUID) (course.CourseWithStats, error)
+	createFn  func(ctx context.Context, id uuid.UUID, req course.CreateCourseRequest) (course.Course, error)
+	updateFullFn func(ctx context.Context, id uuid.UUID, req course.FullCourseUpdate) (course.Course, error)
+	archiveFn func(ctx context.Context, id uuid.UUID) (course.ArchiveResult, error)
 }
 
 func (m *mockRepo) List(ctx context.Context, params course.ListParams) ([]course.CourseWithStats, int64, error) {
@@ -42,9 +41,9 @@ func (m *mockRepo) Create(ctx context.Context, id uuid.UUID, req course.CreateCo
 	}
 	return course.Course{}, nil
 }
-func (m *mockRepo) Update(ctx context.Context, id uuid.UUID, req course.UpdateCourseRequest) (course.Course, error) {
-	if m.updateFn != nil {
-		return m.updateFn(ctx, id, req)
+func (m *mockRepo) UpdateFull(ctx context.Context, id uuid.UUID, req course.FullCourseUpdate) (course.Course, error) {
+	if m.updateFullFn != nil {
+		return m.updateFullFn(ctx, id, req)
 	}
 	return course.Course{}, nil
 }
@@ -53,12 +52,6 @@ func (m *mockRepo) Archive(ctx context.Context, id uuid.UUID) (course.ArchiveRes
 		return m.archiveFn(ctx, id)
 	}
 	return course.ArchiveResult{}, nil
-}
-func (m *mockRepo) CountOngoingBatches(ctx context.Context, courseID uuid.UUID) (int64, error) {
-	if m.countOngoingBatchesFn != nil {
-		return m.countOngoingBatchesFn(ctx, courseID)
-	}
-	return 0, nil
 }
 
 func newSvc(repo course.CourseRepository) *course.CourseService {
@@ -204,8 +197,8 @@ func TestUpdate_PartialUpdate(t *testing.T) {
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (course.CourseWithStats, error) {
 			return course.CourseWithStats{Course: course.Course{ID: fixedID(), Status: "active"}}, nil
 		},
-		updateFn: func(_ context.Context, _ uuid.UUID, req course.UpdateCourseRequest) (course.Course, error) {
-			return course.Course{ID: fixedID(), CourseName: *req.CourseName, Status: "active"}, nil
+		updateFullFn: func(_ context.Context, _ uuid.UUID, req course.FullCourseUpdate) (course.Course, error) {
+			return course.Course{ID: fixedID(), CourseName: req.CourseName, Status: "active"}, nil
 		},
 	})
 
@@ -228,7 +221,7 @@ func TestUpdate_DuplicateCourseCode(t *testing.T) {
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (course.CourseWithStats, error) {
 			return course.CourseWithStats{Course: course.Course{ID: fixedID(), Status: "active"}}, nil
 		},
-		updateFn: func(_ context.Context, _ uuid.UUID, _ course.UpdateCourseRequest) (course.Course, error) {
+		updateFullFn: func(_ context.Context, _ uuid.UUID, _ course.FullCourseUpdate) (course.Course, error) {
 			return course.Course{}, course.ErrCourseCodeConflict
 		},
 	})
@@ -246,12 +239,12 @@ func TestUpdate_InvalidUUID(t *testing.T) {
 }
 
 func TestUpdate_TrimsCourseCode(t *testing.T) {
-	var capturedReq course.UpdateCourseRequest
+	var capturedReq course.FullCourseUpdate
 	svc := newSvc(&mockRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (course.CourseWithStats, error) {
 			return course.CourseWithStats{Course: course.Course{ID: fixedID(), Status: "active"}}, nil
 		},
-		updateFn: func(_ context.Context, _ uuid.UUID, req course.UpdateCourseRequest) (course.Course, error) {
+		updateFullFn: func(_ context.Context, _ uuid.UUID, req course.FullCourseUpdate) (course.Course, error) {
 			capturedReq = req
 			return course.Course{ID: fixedID(), Status: "active"}, nil
 		},
@@ -264,20 +257,14 @@ func TestUpdate_TrimsCourseCode(t *testing.T) {
 		CourseCode: &code,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "Updated", *capturedReq.CourseName)
-	assert.Equal(t, "JP-N5", *capturedReq.CourseCode)
+	assert.Equal(t, "Updated", capturedReq.CourseName)
+	assert.Equal(t, "JP-N5", capturedReq.CourseCode)
 }
 
 // ── Archive ───────────────────────────────────────────────────────────────────
 
 func TestArchive_HappyPath(t *testing.T) {
 	svc := newSvc(&mockRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (course.CourseWithStats, error) {
-			return course.CourseWithStats{Course: course.Course{ID: fixedID(), Status: "active"}}, nil
-		},
-		countOngoingBatchesFn: func(_ context.Context, _ uuid.UUID) (int64, error) {
-			return 0, nil
-		},
 		archiveFn: func(_ context.Context, id uuid.UUID) (course.ArchiveResult, error) {
 			return course.ArchiveResult{ID: id, Status: "archived", UpdatedAt: time.Now()}, nil
 		},
@@ -290,11 +277,8 @@ func TestArchive_HappyPath(t *testing.T) {
 
 func TestArchive_HasOngoingBatches(t *testing.T) {
 	svc := newSvc(&mockRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (course.CourseWithStats, error) {
-			return course.CourseWithStats{Course: course.Course{ID: fixedID(), Status: "active"}}, nil
-		},
-		countOngoingBatchesFn: func(_ context.Context, _ uuid.UUID) (int64, error) {
-			return 2, nil
+		archiveFn: func(_ context.Context, _ uuid.UUID) (course.ArchiveResult, error) {
+			return course.ArchiveResult{}, pgx.ErrNoRows
 		},
 	})
 
@@ -303,8 +287,12 @@ func TestArchive_HasOngoingBatches(t *testing.T) {
 }
 
 func TestArchive_NotFound(t *testing.T) {
-	svc := newSvc(&mockRepo{})
+	svc := newSvc(&mockRepo{
+		archiveFn: func(_ context.Context, _ uuid.UUID) (course.ArchiveResult, error) {
+			return course.ArchiveResult{}, pgx.ErrNoRows
+		},
+	})
 
 	_, err := svc.Archive(context.Background(), fixedID().String())
-	assert.ErrorIs(t, err, course.ErrNotFound)
+	assert.ErrorIs(t, err, course.ErrHasOngoingBatches)
 }

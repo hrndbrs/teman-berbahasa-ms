@@ -5,14 +5,17 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
@@ -21,6 +24,11 @@ var (
 	ErrNotFound      = errors.New("user not found")
 	ErrForbidden     = errors.New("forbidden")
 )
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
 
 type User struct {
 	ID        uuid.UUID
@@ -54,8 +62,17 @@ type UpdateUserRequest struct {
 	LastName  *string
 	Email     *string
 	Role      *string
-	Phone     *string
+	Phone     *patch.Patchable[string]
 	Status    *string
+}
+
+type FullUserUpdate struct {
+	FirstName string
+	LastName  string
+	Email     string
+	Role      string
+	Phone     *string
+	Status    string
 }
 
 type ListResponse struct {
@@ -75,7 +92,7 @@ type UserRepository interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	ListUsers(ctx context.Context, params ListParams) ([]User, int64, error)
 	CreateUser(ctx context.Context, id uuid.UUID, req CreateUserRequest, passwordHash string) (User, error)
-	UpdateUser(ctx context.Context, id uuid.UUID, req UpdateUserRequest) (User, error)
+	UpdateUser(ctx context.Context, id uuid.UUID, req FullUserUpdate) (User, error)
 	InsertPasswordResetToken(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) error
 	DeletePasswordResetTokensByUserID(ctx context.Context, userID uuid.UUID) error
 	DeleteUserSessions(ctx context.Context, userID uuid.UUID) error
@@ -122,6 +139,9 @@ func (s *UserService) CreateUser(ctx context.Context, req CreateUserRequest) (*U
 
 	u, err := s.repo.CreateUser(ctx, id, req, string(hash))
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrEmailConflict
+		}
 		return nil, err
 	}
 
@@ -141,6 +161,9 @@ func (s *UserService) CreateUser(ctx context.Context, req CreateUserRequest) (*U
 }
 
 func (s *UserService) GetUser(ctx context.Context, callerID, callerRole, targetID string) (*User, error) {
+	if callerID == "" {
+		return nil, ErrForbidden
+	}
 	if callerRole != "admin" && callerID != targetID {
 		return nil, ErrForbidden
 	}
@@ -174,6 +197,34 @@ func (s *UserService) ListUsers(ctx context.Context, params ListParams) (*ListRe
 	}, nil
 }
 
+func MergeUserUpdate(existing User, req UpdateUserRequest) FullUserUpdate {
+	u := FullUserUpdate{
+		FirstName: existing.FirstName,
+		LastName:  existing.LastName,
+		Email:     existing.Email,
+		Role:      existing.Role,
+		Phone:     existing.Phone,
+		Status:    existing.Status,
+	}
+	if req.FirstName != nil {
+		u.FirstName = *req.FirstName
+	}
+	if req.LastName != nil {
+		u.LastName = *req.LastName
+	}
+	if req.Email != nil {
+		u.Email = *req.Email
+	}
+	if req.Role != nil {
+		u.Role = *req.Role
+	}
+	if req.Status != nil {
+		u.Status = *req.Status
+	}
+	u.Phone = req.Phone.ValueOr(u.Phone)
+	return u
+}
+
 func (s *UserService) UpdateUser(ctx context.Context, targetID string, req UpdateUserRequest) (*User, error) {
 	id, err := uuid.Parse(targetID)
 	if err != nil {
@@ -186,6 +237,7 @@ func (s *UserService) UpdateUser(ctx context.Context, targetID string, req Updat
 	if err != nil {
 		return nil, err
 	}
+	merged := MergeUserUpdate(existing, req)
 	if req.Email != nil && *req.Email != existing.Email {
 		_, err := s.repo.GetUserByEmail(ctx, *req.Email)
 		if err == nil {
@@ -195,14 +247,19 @@ func (s *UserService) UpdateUser(ctx context.Context, targetID string, req Updat
 			return nil, err
 		}
 	}
-	u, err := s.repo.UpdateUser(ctx, id, req)
+	u, err := s.repo.UpdateUser(ctx, id, merged)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrEmailConflict
+		}
 		return nil, err
 	}
 	roleChanged := req.Role != nil && *req.Role != existing.Role
 	statusDeactivated := req.Status != nil && *req.Status == "inactive"
 	if roleChanged || statusDeactivated {
-		_ = s.repo.DeleteUserSessions(ctx, id)
+		if err := s.repo.DeleteUserSessions(ctx, id); err != nil {
+			return nil, fmt.Errorf("revoking sessions: %w", err)
+		}
 	}
 	return &u, nil
 }

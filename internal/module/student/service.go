@@ -8,9 +8,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
-	ipagination "github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
 
 var (
 	ErrNotFound      = errors.New("student not found")
@@ -100,16 +107,17 @@ type CreateStudentRequest struct {
 }
 
 type UpdateStudentRequest struct {
-	FirstName   *string
-	LastName    *string
-	Email       *string
-	Phone       *string
-	DateOfBirth *time.Time
-	Gender      *string
-	Address     *string
-	ParentName  *string
-	ParentPhone *string
-	Status      *string
+	FirstName *string
+	LastName  *string
+	Status    *string
+
+	Email       *patch.Patchable[string]
+	Phone       *patch.Patchable[string]
+	DateOfBirth *patch.Patchable[time.Time]
+	Gender      *patch.Patchable[string]
+	Address     *patch.Patchable[string]
+	ParentName  *patch.Patchable[string]
+	ParentPhone *patch.Patchable[string]
 }
 
 type StudentRepository interface {
@@ -119,7 +127,7 @@ type StudentRepository interface {
 	GetBatchCodes(ctx context.Context, studentIDs []uuid.UUID) (map[uuid.UUID][]string, error)
 	GetEnrollments(ctx context.Context, studentID uuid.UUID) ([]EnrollmentSummary, error)
 	Create(ctx context.Context, id uuid.UUID, req CreateStudentRequest) (Student, error)
-	Update(ctx context.Context, id uuid.UUID, req UpdateStudentRequest) (Student, error)
+	Update(ctx context.Context, id uuid.UUID, req FullStudentUpdate) (Student, error)
 }
 
 type StudentService struct {
@@ -149,6 +157,9 @@ func (s *StudentService) CreateStudent(ctx context.Context, req CreateStudentReq
 	}
 	student, err := s.repo.Create(ctx, id, req)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrEmailConflict
+		}
 		return nil, err
 	}
 	return &student, nil
@@ -206,9 +217,54 @@ func (s *StudentService) ListStudents(ctx context.Context, params ListParams) (*
 			Page:       params.Page,
 			PerPage:    params.PerPage,
 			Total:      int(total),
-			TotalPages: ipagination.TotalPages(total, params.PerPage),
+			TotalPages: pagination.TotalPages(total, params.PerPage),
 		},
 	}, nil
+}
+
+func MergeStudentUpdate(existing Student, req UpdateStudentRequest) FullStudentUpdate {
+	u := FullStudentUpdate{
+		FirstName:   existing.FirstName,
+		LastName:    existing.LastName,
+		Email:       existing.Email,
+		Phone:       existing.Phone,
+		DateOfBirth: existing.DateOfBirth,
+		Gender:      existing.Gender,
+		Address:     existing.Address,
+		ParentName:  existing.ParentName,
+		ParentPhone: existing.ParentPhone,
+		Status:      existing.Status,
+	}
+	if req.FirstName != nil {
+		u.FirstName = *req.FirstName
+	}
+	if req.LastName != nil {
+		u.LastName = *req.LastName
+	}
+	if req.Status != nil {
+		u.Status = *req.Status
+	}
+	u.Email = req.Email.ValueOr(u.Email)
+	u.Phone = req.Phone.ValueOr(u.Phone)
+	u.DateOfBirth = req.DateOfBirth.ValueOr(u.DateOfBirth)
+	u.Gender = req.Gender.ValueOr(u.Gender)
+	u.Address = req.Address.ValueOr(u.Address)
+	u.ParentName = req.ParentName.ValueOr(u.ParentName)
+	u.ParentPhone = req.ParentPhone.ValueOr(u.ParentPhone)
+	return u
+}
+
+type FullStudentUpdate struct {
+	FirstName        string
+	LastName         string
+	Email            *string
+	Phone            *string
+	DateOfBirth      *time.Time
+	Gender           *string
+	Address          *string
+	ParentName       *string
+	ParentPhone      *string
+	Status           string
 }
 
 func (s *StudentService) UpdateStudent(ctx context.Context, id string, req UpdateStudentRequest) (*Student, error) {
@@ -223,13 +279,13 @@ func (s *StudentService) UpdateStudent(ctx context.Context, id string, req Updat
 	if err != nil {
 		return nil, err
 	}
-	if req.Email != nil {
+	if req.Email.Set() && !req.Email.IsNull && req.Email.Value != nil {
 		existingEmail := ""
 		if existing.Email != nil {
 			existingEmail = *existing.Email
 		}
-		if *req.Email != existingEmail {
-			_, err := s.repo.GetByEmail(ctx, *req.Email)
+		if *req.Email.Value != existingEmail {
+			_, err := s.repo.GetByEmail(ctx, *req.Email.Value)
 			if err == nil {
 				return nil, ErrEmailConflict
 			}
@@ -238,8 +294,12 @@ func (s *StudentService) UpdateStudent(ctx context.Context, id string, req Updat
 			}
 		}
 	}
-	student, err := s.repo.Update(ctx, uid, req)
+	merged := MergeStudentUpdate(existing, req)
+	student, err := s.repo.Update(ctx, uid, merged)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrEmailConflict
+		}
 		return nil, err
 	}
 	return &student, nil

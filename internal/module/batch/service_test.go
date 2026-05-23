@@ -20,10 +20,9 @@ type mockRepo struct {
 	listFn                func(ctx context.Context, params batch.ListParams) ([]batch.BatchWithDetails, int64, error)
 	getByIDFn             func(ctx context.Context, id uuid.UUID) (batch.BatchWithDetails, error)
 	createFn              func(ctx context.Context, id uuid.UUID, req batch.CreateBatchRequest) (batch.BatchWithDetails, error)
-	updateFn              func(ctx context.Context, id uuid.UUID, req batch.UpdateBatchRequest) (batch.BatchWithDetails, error)
+	updateFn              func(ctx context.Context, id uuid.UUID, req batch.FullBatchUpdate) (batch.BatchWithDetails, error)
 	updateStatusFn        func(ctx context.Context, id uuid.UUID, status string) (batch.StatusUpdateResult, error)
 	deleteFn              func(ctx context.Context, id uuid.UUID) error
-	countActiveEnrollFn   func(ctx context.Context, batchID uuid.UUID) (int64, error)
 	existsActiveTeacherFn func(ctx context.Context, instructorID uuid.UUID) (bool, error)
 }
 
@@ -45,7 +44,7 @@ func (m *mockRepo) Create(ctx context.Context, id uuid.UUID, req batch.CreateBat
 	}
 	return batch.BatchWithDetails{}, nil
 }
-func (m *mockRepo) Update(ctx context.Context, id uuid.UUID, req batch.UpdateBatchRequest) (batch.BatchWithDetails, error) {
+func (m *mockRepo) Update(ctx context.Context, id uuid.UUID, req batch.FullBatchUpdate) (batch.BatchWithDetails, error) {
 	if m.updateFn != nil {
 		return m.updateFn(ctx, id, req)
 	}
@@ -62,12 +61,6 @@ func (m *mockRepo) Delete(ctx context.Context, id uuid.UUID) error {
 		return m.deleteFn(ctx, id)
 	}
 	return nil
-}
-func (m *mockRepo) CountActiveEnrollments(ctx context.Context, batchID uuid.UUID) (int64, error) {
-	if m.countActiveEnrollFn != nil {
-		return m.countActiveEnrollFn(ctx, batchID)
-	}
-	return 0, nil
 }
 func (m *mockRepo) ExistsActiveTeacher(ctx context.Context, instructorID uuid.UUID) (bool, error) {
 	if m.existsActiveTeacherFn != nil {
@@ -281,9 +274,9 @@ func TestUpdate_HappyPath(t *testing.T) {
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (batch.BatchWithDetails, error) {
 			return makeBatchWithDetails(), nil
 		},
-		updateFn: func(_ context.Context, _ uuid.UUID, req batch.UpdateBatchRequest) (batch.BatchWithDetails, error) {
+		updateFn: func(_ context.Context, _ uuid.UUID, req batch.FullBatchUpdate) (batch.BatchWithDetails, error) {
 			b := makeBatchWithDetails()
-			b.BatchName = *req.BatchName
+			b.BatchName = req.BatchName
 			return b, nil
 		},
 	})
@@ -324,7 +317,7 @@ func TestUpdate_DuplicateBatchCode(t *testing.T) {
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (batch.BatchWithDetails, error) {
 			return makeBatchWithDetails(), nil
 		},
-		updateFn: func(_ context.Context, _ uuid.UUID, _ batch.UpdateBatchRequest) (batch.BatchWithDetails, error) {
+		updateFn: func(_ context.Context, _ uuid.UUID, _ batch.FullBatchUpdate) (batch.BatchWithDetails, error) {
 			return batch.BatchWithDetails{}, &pgconn.PgError{Code: "23505"}
 		},
 	})
@@ -333,12 +326,12 @@ func TestUpdate_DuplicateBatchCode(t *testing.T) {
 }
 
 func TestUpdate_TrimsWhitespace(t *testing.T) {
-	var captured batch.UpdateBatchRequest
+	var captured batch.FullBatchUpdate
 	svc := newSvc(&mockRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (batch.BatchWithDetails, error) {
 			return makeBatchWithDetails(), nil
 		},
-		updateFn: func(_ context.Context, _ uuid.UUID, req batch.UpdateBatchRequest) (batch.BatchWithDetails, error) {
+		updateFn: func(_ context.Context, _ uuid.UUID, req batch.FullBatchUpdate) (batch.BatchWithDetails, error) {
 			captured = req
 			return makeBatchWithDetails(), nil
 		},
@@ -347,8 +340,8 @@ func TestUpdate_TrimsWhitespace(t *testing.T) {
 	code := "  SP26-B  "
 	_, err := svc.Update(context.Background(), fixedID().String(), batch.UpdateBatchRequest{BatchName: &name, BatchCode: &code})
 	require.NoError(t, err)
-	assert.Equal(t, "Trimmed Name", *captured.BatchName)
-	assert.Equal(t, "SP26-B", *captured.BatchCode)
+	assert.Equal(t, "Trimmed Name", captured.BatchName)
+	assert.Equal(t, "SP26-B", captured.BatchCode)
 }
 
 // ── TransitionStatus ──────────────────────────────────────────────────────────
@@ -413,19 +406,15 @@ func TestTransitionStatus_InvalidUUID(t *testing.T) {
 
 func TestDelete_HappyPath(t *testing.T) {
 	svc := newSvc(&mockRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (batch.BatchWithDetails, error) {
-			return makeBatchWithDetails(), nil
-		},
-		countActiveEnrollFn: func(_ context.Context, _ uuid.UUID) (int64, error) {
-			return 0, nil
-		},
 		deleteFn: func(_ context.Context, _ uuid.UUID) error { return nil },
 	})
 	assert.NoError(t, svc.Delete(context.Background(), fixedID().String()))
 }
 
 func TestDelete_NotFound(t *testing.T) {
-	svc := newSvc(&mockRepo{})
+	svc := newSvc(&mockRepo{
+		deleteFn: func(_ context.Context, _ uuid.UUID) error { return batch.ErrNotFound },
+	})
 	assert.ErrorIs(t, svc.Delete(context.Background(), fixedID().String()), batch.ErrNotFound)
 }
 
@@ -436,12 +425,7 @@ func TestDelete_InvalidUUID(t *testing.T) {
 
 func TestDelete_HasActiveEnrollments(t *testing.T) {
 	svc := newSvc(&mockRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (batch.BatchWithDetails, error) {
-			return makeBatchWithDetails(), nil
-		},
-		countActiveEnrollFn: func(_ context.Context, _ uuid.UUID) (int64, error) {
-			return 3, nil
-		},
+		deleteFn: func(_ context.Context, _ uuid.UUID) error { return batch.ErrHasActiveEnrollments },
 	})
 	assert.ErrorIs(t, svc.Delete(context.Background(), fixedID().String()), batch.ErrHasActiveEnrollments)
 }

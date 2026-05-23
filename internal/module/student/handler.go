@@ -12,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
@@ -47,6 +48,19 @@ type createStudentReq struct {
 	ParentName       *string `json:"parent_name"`
 	ParentPhone      *string `json:"parent_phone"`
 	RegistrationDate *string `json:"registration_date"  validate:"omitempty,datetime=2006-01-02"`
+}
+
+type rawUpdateStudentReq struct {
+	FirstName    *string                 `json:"first_name"`
+	LastName     *string                 `json:"last_name"`
+	Email        *patch.Patchable[string] `json:"email"`
+	Phone        *patch.Patchable[string] `json:"phone"`
+	DateOfBirth  *patch.Patchable[string] `json:"date_of_birth"`
+	Gender       *patch.Patchable[string] `json:"gender"`
+	Address      *patch.Patchable[string] `json:"address"`
+	ParentName   *patch.Patchable[string] `json:"parent_name"`
+	ParentPhone  *patch.Patchable[string] `json:"parent_phone"`
+	Status       *string                  `json:"status"`
 }
 
 type updateStudentReq struct {
@@ -262,27 +276,37 @@ func (h *Handler) createStudent(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) updateStudent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req updateStudentReq
-	if !h.decode(w, r, &req) {
-		return
-	}
-	dob, err := parseDatePtr(req.DateOfBirth)
-	if err != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, errEnvelope("VALIDATION_ERROR", "invalid date_of_birth format"))
+	var raw rawUpdateStudentReq
+	if !h.decode(w, r, &raw) {
 		return
 	}
 
+	var dob *patch.Patchable[time.Time]
+	if raw.DateOfBirth.Set() {
+		dob = &patch.Patchable[time.Time]{Sent: true, IsNull: raw.DateOfBirth.IsNull}
+		if !raw.DateOfBirth.IsNull && raw.DateOfBirth.Value != nil {
+			t, err := time.Parse("2006-01-02", *raw.DateOfBirth.Value)
+			if err != nil {
+				writeJSON(w, http.StatusUnprocessableEntity, errEnvelope("VALIDATION_ERROR", "invalid date_of_birth format"))
+				return
+			}
+			dob.Value = &t
+		}
+	}
+
 	s, err := h.svc.UpdateStudent(r.Context(), id, UpdateStudentRequest{
-		FirstName:   req.FirstName,
-		LastName:    req.LastName,
-		Email:       trimPtr(req.Email),
-		Phone:       req.Phone,
+		FirstName: raw.FirstName,
+		LastName:  raw.LastName,
+
+		Email:       raw.Email,
+		Phone:       raw.Phone,
 		DateOfBirth: dob,
-		Gender:      req.Gender,
-		Address:     req.Address,
-		ParentName:  req.ParentName,
-		ParentPhone: req.ParentPhone,
-		Status:      req.Status,
+		Gender:      raw.Gender,
+		Address:     raw.Address,
+		ParentName:  raw.ParentName,
+		ParentPhone: raw.ParentPhone,
+
+		Status: raw.Status,
 	})
 	if err != nil {
 		switch {
@@ -302,7 +326,14 @@ func (h *Handler) updateStudent(w http.ResponseWriter, r *http.Request) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeJSON(w, http.StatusRequestEntityTooLarge,
+				errEnvelope("REQUEST_TOO_LARGE", "request body exceeds 1MB"))
+			return false
+		}
 		writeJSON(w, http.StatusBadRequest, errEnvelope("BAD_REQUEST", "invalid request body"))
 		return false
 	}

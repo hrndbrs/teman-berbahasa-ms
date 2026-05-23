@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/student"
 )
 
@@ -22,7 +23,7 @@ type mockRepo struct {
 	getBatchCodesFn func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]string, error)
 	getEnrollsFn    func(ctx context.Context, id uuid.UUID) ([]student.EnrollmentSummary, error)
 	createFn        func(ctx context.Context, id uuid.UUID, req student.CreateStudentRequest) (student.Student, error)
-	updateFn        func(ctx context.Context, id uuid.UUID, req student.UpdateStudentRequest) (student.Student, error)
+	updateFn        func(ctx context.Context, id uuid.UUID, req student.FullStudentUpdate) (student.Student, error)
 }
 
 func (m *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (student.Student, error) {
@@ -61,7 +62,7 @@ func (m *mockRepo) Create(ctx context.Context, id uuid.UUID, req student.CreateS
 	}
 	return student.Student{}, nil
 }
-func (m *mockRepo) Update(ctx context.Context, id uuid.UUID, req student.UpdateStudentRequest) (student.Student, error) {
+func (m *mockRepo) Update(ctx context.Context, id uuid.UUID, req student.FullStudentUpdate) (student.Student, error) {
 	if m.updateFn != nil {
 		return m.updateFn(ctx, id, req)
 	}
@@ -228,7 +229,8 @@ func TestUpdateStudent_EmailConflict(t *testing.T) {
 			return student.Student{ID: uuid.New()}, nil
 		},
 	})
-	_, err := svc.UpdateStudent(context.Background(), id.String(), student.UpdateStudentRequest{Email: &taken})
+	takenPatch := &patch.Patchable[string]{Sent: true, Value: &taken}
+	_, err := svc.UpdateStudent(context.Background(), id.String(), student.UpdateStudentRequest{Email: takenPatch})
 	assert.ErrorIs(t, err, student.ErrEmailConflict)
 }
 
@@ -244,7 +246,7 @@ func TestUpdateStudent_NilEmail_NoCheck(t *testing.T) {
 			emailCheckCalled = true
 			return student.Student{}, pgx.ErrNoRows
 		},
-		updateFn: func(_ context.Context, _ uuid.UUID, _ student.UpdateStudentRequest) (student.Student, error) {
+		updateFn: func(_ context.Context, _ uuid.UUID, _ student.FullStudentUpdate) (student.Student, error) {
 			return student.Student{ID: id, Status: "active"}, nil
 		},
 	})
@@ -260,8 +262,8 @@ func TestUpdateStudent_Success(t *testing.T) {
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (student.Student, error) {
 			return student.Student{ID: id, Status: "active"}, nil
 		},
-		updateFn: func(_ context.Context, _ uuid.UUID, req student.UpdateStudentRequest) (student.Student, error) {
-			return student.Student{ID: id, Status: *req.Status, UpdatedAt: time.Now()}, nil
+		updateFn: func(_ context.Context, _ uuid.UUID, req student.FullStudentUpdate) (student.Student, error) {
+			return student.Student{ID: id, Status: req.Status, UpdatedAt: time.Now()}, nil
 		},
 	})
 	s, err := svc.UpdateStudent(context.Background(), id.String(), student.UpdateStudentRequest{Status: &newStatus})
