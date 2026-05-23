@@ -20,7 +20,14 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrAccountLocked      = errors.New("account locked")
 	ErrInvalidToken       = errors.New("invalid or expired token")
+
+	dummyHash []byte
 )
+
+func init() {
+	h, _ := bcrypt.GenerateFromPassword([]byte("dummy-password-for-timing"), 12)
+	dummyHash = h
+}
 
 const (
 	accessTokenTTL  = 15 * time.Minute
@@ -68,18 +75,27 @@ type UserInfo struct {
 	Role      string `json:"role"`
 }
 
+type TxBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 type AuthService struct {
 	tm      *token.Manager
 	repo    AuthRepository
+	txBegin TxBeginner
 	emailer EmailSender
 }
 
-func NewService(tm *token.Manager, repo AuthRepository, emailer EmailSender) *AuthService {
-	return &AuthService{tm: tm, repo: repo, emailer: emailer}
+func NewService(tm *token.Manager, repo AuthRepository, txBegin TxBeginner, emailer EmailSender) *AuthService {
+	return &AuthService{tm: tm, repo: repo, txBegin: txBegin, emailer: emailer}
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (*LoginResponse, error) {
 	user, err := s.repo.GetUserByEmail(ctx, email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
+		return nil, ErrInvalidCredentials
+	}
 	if err != nil {
 		return nil, ErrInvalidCredentials
 	}
@@ -123,42 +139,41 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Login
 	}, nil
 }
 
-func (s *AuthService) Me(ctx context.Context, userID string) (*UserInfo, error) {
-	id, err := uuid.Parse(userID)
-	if err != nil {
-		return nil, ErrInvalidToken
-	}
-	user, err := s.repo.GetUserByID(ctx, id)
-	if err != nil || user.Status != "active" {
-		return nil, ErrInvalidToken
-	}
-	return &UserInfo{
-		ID:        user.ID.String(),
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Role:      user.Role,
-	}, nil
-}
-
 func (s *AuthService) Refresh(ctx context.Context, rawToken string) (*TokenPair, error) {
-	row, err := s.repo.GetRefreshTokenByRaw(ctx, rawToken)
+	tx, err := s.txBegin.Begin(ctx)
 	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	var userID uuid.UUID
+	var expiresAt time.Time
+	err = tx.QueryRow(ctx,
+		"SELECT user_id, expires_at FROM refresh_tokens WHERE token_hash = $1 FOR UPDATE",
+		hashToken(rawToken),
+	).Scan(&userID, &expiresAt)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInvalidToken
 	}
-	if time.Now().After(row.ExpiresAt.Time) {
+	if err != nil {
+		return nil, err
+	}
+	if time.Now().After(expiresAt) {
 		return nil, ErrInvalidToken
 	}
 
-	user, err := s.repo.GetUserByID(ctx, row.UserID)
+	user, err := s.repo.GetUserByID(ctx, userID)
 	if err != nil || user.Status != "active" {
 		return nil, ErrInvalidToken
 	}
 
-	if err := s.repo.DeleteRefreshToken(ctx, row.ID); err != nil {
+	if _, err = tx.Exec(ctx,
+		"DELETE FROM refresh_tokens WHERE token_hash = $1", hashToken(rawToken),
+	); err != nil {
 		return nil, err
 	}
 
-	accessToken, err := s.tm.Sign(row.UserID.String(), user.Role, accessTokenTTL)
+	accessToken, err := s.tm.Sign(userID.String(), user.Role, accessTokenTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -166,11 +181,19 @@ func (s *AuthService) Refresh(ctx context.Context, rawToken string) (*TokenPair,
 	if err != nil {
 		return nil, err
 	}
-	if err := s.repo.InsertRefreshToken(ctx, row.UserID, newRaw, time.Now().Add(refreshTokenTTL)); err != nil {
+	newHash := hashToken(newRaw)
+	if _, err = tx.Exec(ctx,
+		"INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)",
+		uuid.New(), userID, newHash, time.Now().Add(refreshTokenTTL),
+	); err != nil {
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "token refreshed", "user_id", row.UserID)
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	slog.DebugContext(ctx, "token refreshed", "user_id", userID)
 	return &TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: newRaw,
@@ -218,12 +241,18 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 	if err != nil {
 		return err
 	}
+	if user.Status != "active" {
+		return nil
+	}
+
+	if err := s.repo.DeletePasswordResetTokensByUserID(ctx, user.ID); err != nil {
+		return err
+	}
 
 	rawToken, err := generateRawToken()
 	if err != nil {
 		return err
 	}
-	_ = s.repo.DeletePasswordResetTokensByUserID(ctx, user.ID)
 	if err := s.repo.InsertPasswordResetToken(ctx, user.ID, rawToken, time.Now().Add(resetTokenTTL)); err != nil {
 		return err
 	}
@@ -244,17 +273,39 @@ func (s *AuthService) ResetPassword(ctx context.Context, rawToken, newPassword s
 		return ErrInvalidToken
 	}
 
+	user, err := s.repo.GetUserByID(ctx, row.UserID)
+	if err != nil {
+		return err
+	}
+	if user.Status != "active" {
+		return ErrInvalidToken
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), 12)
 	if err != nil {
 		return err
 	}
-	if err := s.repo.UpdateUserPassword(ctx, row.UserID, string(hash)); err != nil {
+
+	tx, err := s.txBegin.Begin(ctx)
+	if err != nil {
 		return err
 	}
-	if err := s.repo.DeletePasswordResetToken(ctx, row.ID); err != nil {
-		slog.ErrorContext(ctx, "failed to delete reset token after password update", "error", err)
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if _, err = tx.Exec(ctx, "UPDATE users SET password_hash = $1 WHERE id = $2", string(hash), row.UserID); err != nil {
+		return err
 	}
-	_ = s.repo.DeleteRefreshTokensByUserID(ctx, row.UserID)
+	if _, err = tx.Exec(ctx, "DELETE FROM password_reset_tokens WHERE id = $1", row.ID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, "DELETE FROM refresh_tokens WHERE user_id = $1", row.UserID); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+
 	slog.InfoContext(ctx, "password reset completed", "user_id", row.UserID)
 	return nil
 }

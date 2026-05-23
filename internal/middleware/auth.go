@@ -34,7 +34,12 @@ func Auth(tm *token.Manager) func(http.Handler) http.Handler {
 				writeAuthError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing or malformed authorization header")
 				return
 			}
-			claims, err := tm.Verify(strings.TrimPrefix(header, "Bearer "))
+			tokenStr := strings.TrimPrefix(header, "Bearer ")
+			if len(tokenStr) > 4096 {
+				writeAuthError(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid token")
+				return
+			}
+			claims, err := tm.Verify(tokenStr)
 			if err != nil {
 				writeAuthError(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired token")
 				return
