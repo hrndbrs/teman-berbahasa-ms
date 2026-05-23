@@ -85,7 +85,7 @@ Three roles: `admin`, `teacher`, `staff`. Role checks live in middleware — han
 - IDs: UUID v7 string — `"019687a2-1234-7abc-8def-000000000001"`
 - Datetimes: ISO 8601 UTC — `"2025-05-18T07:00:00Z"`
 - Field names: `snake_case` throughout
-- `PATCH` is partial — only sent fields update
+- `PATCH` is partial — only sent fields update. For nullable fields, sending explicit `null` clears the value; omitting the key leaves it unchanged.
 - Responses always nest full objects — never bare foreign-key IDs
 - `price` returned as string (no float precision loss)
 

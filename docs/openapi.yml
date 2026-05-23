@@ -25,6 +25,8 @@ info:
     - All datetimes are ISO 8601 UTC.
     - Field names are `snake_case` throughout.
     - String fields are trimmed of leading/trailing whitespace before processing.
+    - `PATCH` endpoints are partial: omit a field to leave it unchanged. For nullable fields, send explicit `null` to clear the value — omitting the key and sending `null` are distinct operations.
+    - Request bodies are limited to 1 MB.
   version: 0.1.0
   contact:
     name: Hernando
@@ -787,6 +789,12 @@ paths:
           schema:
             type: string
             format: uuid
+      description: |
+        Archives a course atomically. The course must be `active` and must not
+        have any `ongoing` batches. Returns 422 when the atomic check fails
+        (course not found, already archived, or has ongoing batches) — these
+        cases are indistinguishable to prevent race conditions between the
+        existence check and the archive operation. Returns 404 on invalid UUID.
       responses:
         "200":
           description: Course archived.
@@ -811,7 +819,17 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
-          $ref: "#/components/responses/ValidationError"
+          description: |
+            Atomic archive check failed — course not found, already archived,
+            or has ongoing batches. Check the error message for details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: cannot archive a course with ongoing batches
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1403,6 +1421,7 @@ components:
 
     UpdateUserRequest:
       type: object
+      description: All fields optional. Omit a field to leave it unchanged. Send explicit `null` for nullable fields to clear the value.
       properties:
         first_name:
           type: string
@@ -1416,6 +1435,7 @@ components:
           enum: [admin, teacher, staff]
         phone:
           type: [string, "null"]
+          description: Send explicit `null` to clear.
         status:
           type: string
           enum: [active, inactive]
@@ -1591,6 +1611,7 @@ components:
 
     UpdateStudentRequest:
       type: object
+      description: All fields optional. Omit a field to leave it unchanged. Send explicit `null` for nullable fields to clear the value.
       properties:
         first_name:
           type: string
@@ -1599,20 +1620,27 @@ components:
         email:
           type: [string, "null"]
           format: email
+          description: Send explicit `null` to clear.
         phone:
           type: [string, "null"]
+          description: Send explicit `null` to clear.
         date_of_birth:
           type: [string, "null"]
           format: date
+          description: Send explicit `null` to clear.
         gender:
           type: [string, "null"]
           enum: [male, female, other]
+          description: Send explicit `null` to clear.
         address:
           type: [string, "null"]
+          description: Send explicit `null` to clear.
         parent_name:
           type: [string, "null"]
+          description: Send explicit `null` to clear.
         parent_phone:
           type: [string, "null"]
+          description: Send explicit `null` to clear.
         status:
           type: string
           enum: [active, inactive, graduated]
@@ -1693,28 +1721,41 @@ components:
           example: "480000.00"
         max_capacity:
           type: integer
+          nullable: true
+          description: |
+            Null means unlimited capacity. Send explicit `null` in a PATCH
+            request body to clear the current value.
 
     UpdateCourseRequest:
       type: object
+      description: All fields optional. Omit a field to leave it unchanged. Send explicit `null` for nullable fields to clear the value.
       properties:
         course_name:
           type: string
         course_code:
           type: string
         description:
-          type: string
+          type: [string, "null"]
+          description: Send explicit `null` to clear.
         subject:
-          type: string
+          type: [string, "null"]
+          description: Send explicit `null` to clear.
         level:
-          type: string
+          type: [string, "null"]
           enum: [beginner, intermediate, advanced]
+          description: Send explicit `null` to clear.
         session_count:
-          type: integer
+          type: [integer, "null"]
+          description: Send explicit `null` to clear.
         price:
-          type: string
+          type: [string, "null"]
           example: "480000.00"
+          description: Send explicit `null` to clear.
         max_capacity:
-          type: integer
+          type: [integer, "null"]
+          description: |
+            Send explicit `null` to clear (sets unlimited capacity).
+            Null means no capacity cap — enrollment is unrestricted.
 
     # ── Batch schemas ─────────────────────────────────────────────────────────
 
@@ -1816,6 +1857,7 @@ components:
 
     UpdateBatchRequest:
       type: object
+      description: All fields optional. Omit a field to leave it unchanged. Send explicit `null` for nullable fields to clear the value.
       properties:
         instructor_user_id:
           type: string
@@ -1825,7 +1867,8 @@ components:
         batch_code:
           type: string
         academic_year:
-          type: string
+          type: [string, "null"]
+          description: Administrative label (e.g. "2026"). Send explicit `null` to clear.
 
     EnrollmentStudentRef:
       type: object
@@ -1872,7 +1915,18 @@ components:
 
     EnrollmentDetail:
       type: object
-      required: [id, status, payment_status, enrollment_date, student, batch, course, created_at, updated_at]
+      required:
+        [
+          id,
+          status,
+          payment_status,
+          enrollment_date,
+          student,
+          batch,
+          course,
+          created_at,
+          updated_at,
+        ]
       properties:
         id:
           type: string
@@ -1915,6 +1969,7 @@ components:
 
     UpdateEnrollmentRequest:
       type: object
+      description: All fields optional. Omit a field to leave it unchanged.
       properties:
         status:
           type: string
@@ -1925,8 +1980,10 @@ components:
           enum: [partial, paid]
           description: "Valid transitions: pending → partial | paid, partial → paid"
         final_grade:
-          type: string
-          description: Freeform grade string (e.g. "A", "85", "Pass").
+          type: [string, "null"]
+          description: |
+            Freeform grade string (e.g. "A", "85", "Pass"). Only settable when enrollment status is `completed`.
+            Send explicit `null` to clear.
 
     MessageResponse:
       type: object
@@ -1956,6 +2013,7 @@ components:
                 - GONE
                 - VALIDATION_ERROR
                 - RATE_LIMITED
+                - REQUEST_TOO_LARGE
                 - ACCOUNT_LOCKED
                 - INTERNAL_ERROR
             message:

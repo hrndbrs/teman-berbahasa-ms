@@ -21,6 +21,7 @@ internal/
 │   ├── migrations/
 │   └── query/               # sqlc generated *.go files
 ├── middleware/              # auth, logging, recovery, CORS
+├── patch/                   # Patchable[T] generic type for nullable PATCH fields
 ├── worker/                  # goroutine pool, job types, dispatcher
 └── module/
     ├── auth/
@@ -75,7 +76,7 @@ No ORM. Raw SQL via sqlc. No Redis — async jobs via in-process goroutine worke
 - All datetimes: ISO 8601 UTC — `"2025-05-18T07:00:00Z"`
 - All dates: `"2025-05-18"`, all times: `"09:00:00"` (24h, WIB/UTC+7)
 - Field names: `snake_case` throughout
-- `PATCH` is partial — only sent fields are updated
+- `PATCH` is partial — only sent fields are updated. Nullable fields support explicit `null` to clear: send `"field": null` to set to NULL, omit the key to leave unchanged. Implemented via `internal/patch.Patchable[T]` with custom `UnmarshalJSON`.
 - Enums: lowercase strings (never integers)
 - `price` returned as string to avoid float precision loss
 - Nested objects in responses — never bare IDs in response bodies
@@ -91,10 +92,12 @@ No ORM. Raw SQL via sqlc. No Redis — async jobs via in-process goroutine worke
 
 Standard codes: `BAD_REQUEST` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND` (404), `CONFLICT` (409), `GONE` (410), `VALIDATION_ERROR` (422), `RATE_LIMITED` (429), `INTERNAL_ERROR` (500).
 
+`POST /auth/login` additionally returns `401 ACCOUNT_LOCKED` when the account is locked after 10 failed attempts.
+
 ## Database
 
 - PostgreSQL, single instance. All PKs are UUID v7.
-- `pgx/v5` driver with `pgxpool` (`MaxConns = 20`).
+- `pgx/v5` driver with `pgxpool` — pool config: `MaxConns=20`, `MinConns=2`, `MaxConnLifetime=1h`, `MaxConnIdleTime=10m`, `HealthCheckPeriod=30s`.
 - All queries via sqlc — no string concatenation in queries.
 - All `TIMESTAMPTZ` columns store UTC.
 - `day_of_week` interpreted in WIB (UTC+7).
@@ -128,16 +131,20 @@ Catch `pgerrcode.UniqueViolation` → return 409.
 
 ### Auth
 
-- bcrypt cost 12. JWT signed with RS256. Access token TTL: 15 min. Refresh token TTL: 7 days.
+- bcrypt cost 12. JWT signed with RS256 (`jwt.WithValidMethods([]string{"RS256"})`). Access token TTL: 15 min. Refresh token TTL: 7 days.
 - Refresh token stored as `SHA-256(raw_token)` — raw token never persists in DB.
-- Refresh tokens rotated on every use; reusing rotated token → 401.
+- Refresh rotation wrapped in a single transaction with `SELECT ... FOR UPDATE` on the token row — prevents duplicate session issuance under concurrent requests.
+- Reusing a rotated token → 401. Concurrent requests with the same token: first wins, second gets 401.
 - Account lock after 10 failed login attempts; reset on success.
+- `Login`: runs dummy bcrypt when email not found to prevent timing-oracle enumeration.
+- `ForgotPassword`: silently returns nil for inactive or unknown accounts (anti-enumeration).
+- `ResetPassword`: checks `user.Status = active` before accepting the token; wraps password update + token deletion + session revocation in one transaction.
 
 ### Batches
 
 - `instructor_user_id` must reference a `users.role = teacher` — validate in service before insert.
 - Status transitions: `upcoming → ongoing → completed` only. No reversals.
-- Cannot delete batch with active enrollments.
+- Cannot delete batch with active enrollments — enforced atomically via `DELETE ... WHERE NOT EXISTS (active enrollments) RETURNING id`. No check-then-act race.
 - **No `start_date`/`end_date` on batches.** Date range is derived from schedules (`MIN`/`MAX` of schedule slots). Storing dates on the batch would require double-updating whenever a schedule is rescheduled (e.g., due to a holiday). `academic_year` (e.g., `"2026"`) is kept as a standalone administrative label.
 - When schedule module is built, add `first_class_date` and `last_class_date` to `batches_with_stats` view via `MIN`/`MAX` of schedule effective dates.
 
@@ -172,7 +179,7 @@ Catch `pgerrcode.UniqueViolation` → return 409.
 
 ### Courses
 
-- Cannot archive a course with `ongoing` batches — count check before update.
+- Cannot archive a course with `ongoing` batches — enforced atomically via `UPDATE courses SET status='archived' WHERE ... AND NOT EXISTS (ongoing batches) RETURNING id`. No check-then-act race.
 
 ## State Machines
 
@@ -231,6 +238,13 @@ func NewFormService(pool *pgxpool.Pool, q *db.Queries, w *worker.Worker) *FormSe
 
 Channel-based goroutine pool — no Redis. `Dispatch` is non-blocking; drops job if channel full (acceptable for notification fanout in v1).
 
+- `Job` interface requires `Type() string`, `Execute(ctx)`, and `LogFields() []any` — `LogFields` provides entity IDs for structured logging on drop.
+- Dropped jobs logged at WARN with entity fields + running `dropped_total` counter (accessible from `Worker.DroppedTotal()`).
+- Worker goroutine panics: logged + Sentry-captured, then restarted with exponential backoff (1s × restart count, capped at 30s).
+- `Worker.Drain(timeout)` waits for in-flight jobs to finish (uses `sync.WaitGroup`). Call after `http.Server.Shutdown` and before `pool.Close`.
+- Shutdown order in `main.go`: `srv.Shutdown → w.Drain(10s) → sentry.Flush(2s) → pool.Close`.
+- **Horizontal scaling note:** the in-process pool is not shared across instances. Before adding a second replica, replace with an external queue (e.g. PostgreSQL `LISTEN/NOTIFY` or PgMQ).
+
 ## Security
 
 - All endpoints require JWT except `POST /forms/:id/responses` (when `allow_anonymous = true`).
@@ -239,6 +253,10 @@ Channel-based goroutine pool — no Redis. `Dispatch` is non-blocking; drops job
 - All DB queries parameterized via sqlc.
 - Strip leading/trailing whitespace on all string fields at request parsing.
 - CORS: restrict `Access-Control-Allow-Origin` to known frontend origins.
+- All request bodies limited to 1 MB via `http.MaxBytesReader` in every `decode()` helper.
+- Bearer token strings capped at 4096 bytes before JWT parsing.
+- JWT algorithm pinned to RS256 via `jwt.WithValidMethods([]string{"RS256"})` — rejects `none`, HS256, and other RSA variants.
+- Panics in HTTP handlers and worker goroutines are captured to Sentry via `sentry.CurrentHub().RecoverWithContext`.
 
 ## Non-Functional
 
@@ -247,8 +265,9 @@ Channel-based goroutine pool — no Redis. `Dispatch` is non-blocking; drops job
 - Structured JSON logs via `log/slog`: fields `method`, `path`, `user_id`, `status`, `duration_ms`, `error`.
 - `GET /health` → `{"status":"ok","db":"ok"}`.
 - Timezone: all TIMESTAMPTZ in UTC; `day_of_week` in WIB (UTC+7).
-- Use `RETURNING` clauses to avoid extra SELECT after INSERT.
-- Graceful shutdown: `signal.NotifyContext` + `http.Server.Shutdown(ctx)` with 30s timeout.
+- Use `RETURNING` clauses (or CTEs joining the view) to avoid extra SELECT after INSERT/UPDATE.
+- Graceful shutdown: `signal.NotifyContext` + `http.Server.Shutdown(ctx)` with 30s timeout, followed by worker drain and Sentry flush before pool close.
+- `GET /students/:id` enrollment history capped at 50 most recent (`LIMIT 50` in `GetStudentEnrollments`).
 
 ## Deployment
 

@@ -12,7 +12,7 @@
 - All datetimes: ISO 8601, UTC — `"2025-05-18T07:00:00Z"`
 - All dates (no time component): `"2025-05-18"`
 - All times (no date): `"09:00:00"` (24-hour, HH:MM:SS)
-- Nullable fields marked `null` in examples; absent and `null` treated identically on input
+- Nullable fields marked `null` in examples. **On `PATCH` input, `null` and absent are NOT equivalent:** sending `"field": null` clears the value; omitting the key leaves the existing value unchanged.
 - `PATCH` requests are partial — only included fields are updated
 - Field names: `snake_case` throughout
 - Passwords never appear in any response payload
@@ -196,10 +196,12 @@ All error responses use this shape regardless of status code.
 | ---- | ------------------ | ------------------------------------------------------------------ |
 | 400  | `BAD_REQUEST`      | Malformed JSON or missing required body                            |
 | 401  | `UNAUTHORIZED`     | Missing or invalid token                                           |
+| 401  | `ACCOUNT_LOCKED`   | Account temporarily locked after too many failed login attempts    |
 | 403  | `FORBIDDEN`        | Valid token but insufficient role                                  |
 | 404  | `NOT_FOUND`        | Resource does not exist                                            |
 | 409  | `CONFLICT`         | Duplicate — unique constraint would be violated                    |
 | 410  | `GONE`             | Resource existed but is permanently unavailable (e.g. closed form) |
+| 413  | `REQUEST_TOO_LARGE`| Request body exceeds 1 MB size limit                               |
 | 422  | `VALIDATION_ERROR` | Business rule or field validation failed; see `fields`             |
 | 429  | `RATE_LIMITED`     | Too many requests; check `Retry-After` header                      |
 | 500  | `INTERNAL_ERROR`   | Unexpected server error                                            |
@@ -638,6 +640,8 @@ Sets `status = inactive`. No body.
 }
 ```
 
+> `max_capacity` is nullable — send explicit `null` to clear the value (unlimited capacity). Omitting the field leaves the current value unchanged.
+
 **Response `200`:** Full updated course object.
 
 ---
@@ -713,22 +717,12 @@ No request body.
       "course": {
         "id": "019687a2-0002-7000-8000-000000000001",
         "course_name": "Matematika Dasar",
-        "course_code": "MTK01",
-        "level": "beginner"
+        "course_code": "MTK01"
       },
       "instructor": {
         "id": "019687a2-0001-7000-8000-000000000001",
         "first_name": "Budi",
-        "last_name": "Santoso",
-        "email": "budi@tutorplace.id",
-        "role": "teacher"
-      },
-      "created_by": {
-        "id": "019687a2-0001-7000-8000-000000000099",
-        "first_name": "Admin",
-        "last_name": "Utama",
-        "email": "admin@tutorplace.id",
-        "role": "admin"
+        "last_name": "Santoso"
       },
       "enrolled_count": 12,
       "created_at": "2025-01-15T03:00:00Z",
@@ -770,7 +764,7 @@ No request body.
 
 ### `GET /batches/:id`
 
-**Response `200`:** Same as list item shape — `enrolled_count` and nested `course`, `instructor`, `created_by` always included.
+**Response `200`:** Same as list item shape — `enrolled_count` and nested `course`, `instructor` always included.
 
 ---
 
@@ -1769,9 +1763,7 @@ Content-Disposition: attachment; filename="survei-kepuasan-siswa-responses.csv"
     "id": "019687a2-0001-7000-8000-000000000001",
     "first_name": "Budi",
     "last_name": "Santoso",
-    "email": "budi@tutorplace.id",
-    "role": "teacher",
-    "status": "active"
+    "role": "teacher"
   }
 }
 ```
@@ -1805,6 +1797,27 @@ Content-Disposition: attachment; filename="survei-kepuasan-siswa-responses.csv"
 
 ---
 
+### `GET /auth/me`
+
+Returns the authenticated user's profile. Useful for validating the access token is still valid and retrieving identity on page load.
+
+No request body. Requires `Authorization: Bearer <access_token>`.
+
+**Response `200`:**
+
+```json
+{
+  "id": "019687a2-0001-7000-8000-000000000001",
+  "first_name": "Budi",
+  "last_name": "Santoso",
+  "role": "teacher"
+}
+```
+
+**Response `401`:** Invalid or expired access token.
+
+---
+
 ### `POST /auth/logout`
 
 **Request:**
@@ -1815,17 +1828,11 @@ Content-Disposition: attachment; filename="survei-kepuasan-siswa-responses.csv"
 }
 ```
 
-**Response `200`:**
-
-```json
-{
-  "message": "Logged out successfully"
-}
-```
+**Response `204`:** No content.
 
 ---
 
-### `POST /auth/password-reset/request`
+### `POST /auth/forgot-password`
 
 **Request:**
 
@@ -1847,7 +1854,7 @@ Content-Disposition: attachment; filename="survei-kepuasan-siswa-responses.csv"
 
 ---
 
-### `POST /auth/password-reset/confirm`
+### `POST /auth/reset-password`
 
 **Request:**
 
