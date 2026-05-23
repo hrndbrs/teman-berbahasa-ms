@@ -66,6 +66,11 @@ tags:
       Batch management scoped to courses.
       All endpoints require a valid JWT. Create/update/delete restricted to `admin` and `staff` roles.
       All authenticated roles can view batches.
+  - name: Enrollments
+    description: |
+      Enrollment management: enroll students into batches, track payment and final grade.
+      All endpoints require a valid JWT. Create/update restricted to `admin` and `staff` roles.
+      All authenticated roles can view enrollments.
 
 paths:
   /health:
@@ -1026,6 +1031,175 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /enrollments:
+    get:
+      tags: [Enrollments]
+      operationId: listEnrollments
+      summary: List enrollments
+      description: |
+        Returns a paginated list of enrollments. Filterable by `batch_id`, `student_id`,
+        `status`, and `payment_status`. All authenticated roles can access this endpoint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: batch_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: student_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [enrolled, dropped, completed]
+        - name: payment_status
+          in: query
+          schema:
+            type: string
+            enum: [pending, partial, paid]
+      responses:
+        "200":
+          description: Paginated list of enrollments.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EnrollmentDetail"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Enrollments]
+      operationId: createEnrollment
+      summary: Enroll student into batch
+      description: |
+        Enroll a student into a batch. The `course_id` is derived server-side from the batch.
+        Uses an advisory lock to prevent race conditions on capacity checks.
+        Restricted to `admin` and `staff` roles.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEnrollmentRequest"
+      responses:
+        "201":
+          description: Enrollment created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollmentDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /enrollments/{id}:
+    get:
+      tags: [Enrollments]
+      operationId: getEnrollment
+      summary: Get enrollment by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Enrollment details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollmentDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags: [Enrollments]
+      operationId: updateEnrollment
+      summary: Update enrollment status, payment, or grade
+      description: |
+        Partial update. Only sent fields are changed.
+
+        **Status transitions:** `enrolled → dropped | completed`
+
+        **Payment transitions:** `pending → partial | paid`, `partial → paid`
+
+        Restricted to `admin` and `staff` roles.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEnrollmentRequest"
+      responses:
+        "200":
+          description: Enrollment updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollmentDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1652,6 +1826,107 @@ components:
           type: string
         academic_year:
           type: string
+
+    EnrollmentStudentRef:
+      type: object
+      required: [id, first_name, last_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+
+    EnrollmentBatchRef:
+      type: object
+      required: [id, batch_name, batch_code, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_name:
+          type: string
+        batch_code:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, ongoing, completed]
+
+    EnrollmentCourseRef:
+      type: object
+      required: [id, course_name, course_code]
+      properties:
+        id:
+          type: string
+          format: uuid
+        course_name:
+          type: string
+        course_code:
+          type: string
+
+    EnrollmentDetail:
+      type: object
+      required: [id, status, payment_status, enrollment_date, student, batch, course, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [enrolled, dropped, completed]
+        payment_status:
+          type: string
+          enum: [pending, partial, paid]
+        final_grade:
+          type: string
+          nullable: true
+        enrollment_date:
+          type: string
+          format: date
+        student:
+          $ref: "#/components/schemas/EnrollmentStudentRef"
+        batch:
+          $ref: "#/components/schemas/EnrollmentBatchRef"
+        course:
+          $ref: "#/components/schemas/EnrollmentCourseRef"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateEnrollmentRequest:
+      type: object
+      required: [student_id, batch_id]
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+
+    UpdateEnrollmentRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [dropped, completed]
+          description: "Valid transitions: enrolled → dropped | completed"
+        payment_status:
+          type: string
+          enum: [partial, paid]
+          description: "Valid transitions: pending → partial | paid, partial → paid"
+        final_grade:
+          type: string
+          description: Freeform grade string (e.g. "A", "85", "Pass").
 
     MessageResponse:
       type: object
