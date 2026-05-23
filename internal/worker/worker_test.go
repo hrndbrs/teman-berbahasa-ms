@@ -19,6 +19,7 @@ type countJob struct {
 }
 
 func (j *countJob) Type() string { return j.name }
+func (j *countJob) LogFields() []any { return []any{"job_name", j.name} }
 func (j *countJob) Execute(_ context.Context) {
 	j.counter.Add(1)
 	if j.done != nil {
