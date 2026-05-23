@@ -11,7 +11,7 @@ DATABASE_URL ?= $(shell grep -E '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2-
         test test-race test-integration coverage \
         fmt fmt-check vet lint tidy check ci \
         migrate-up migrate-down migrate-down-one migrate-up-one \
-        migrate-version migrate-force migrate-create db-reset \
+        migrate-version migrate-status migrate-force migrate-create db-reset \
         seed sqlc keys \
         docker-up docker-down docker-build docker-rebuild \
         docker-restart docker-logs docker-shell \
@@ -91,6 +91,9 @@ migrate-down-one: ## Roll back one migration step
 
 migrate-version: ## Show current migration version and dirty flag
 	$(MIGRATE) -path $(MIGRATIONS) -database "$(DATABASE_URL)" version
+
+migrate-status: ## List all migrations with applied [x]/[ ] indicators
+	$(MIGRATE) -path $(MIGRATIONS) -database "$(DATABASE_URL)" status
 
 migrate-force: ## Force migration to version N (fix dirty state): make migrate-force V=3
 	$(MIGRATE_CLI) -path $(MIGRATIONS) -database "$(DATABASE_URL)" force $(V)

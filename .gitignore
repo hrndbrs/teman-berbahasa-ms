@@ -2,11 +2,13 @@
 
 # Binaries for programs and plugins
 
-_.exe
-_.exe~
-_.dll
-_.so
-\*.dylib
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/server
+/migrate
 
 # Test binary, built with `go test -c`
 

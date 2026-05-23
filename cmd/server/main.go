@@ -56,7 +56,6 @@ func main() {
 		slog.Error("db connect error", "error", err)
 		os.Exit(1)
 	}
-	defer pool.Close()
 
 	w := worker.New(100)
 	w.Start(ctx, 4)
@@ -69,7 +68,7 @@ func main() {
 
 	authRepo := auth.NewRepository(pool)
 	emailSender := auth.NewEmailSender(cfg.ResendAPIKey, cfg.ResendFromEmail, cfg.FrontendURL)
-	authSvc := auth.NewService(tokenManager, authRepo, emailSender)
+	authSvc := auth.NewService(tokenManager, authRepo, pool, emailSender)
 	authHandler := auth.NewHandler(authSvc)
 
 	userRepo := user.NewRepository(pool)
@@ -139,8 +138,16 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("shutdown error", "error", err)
+		slog.Error("http shutdown error", "error", err)
 	}
+
+	w.Drain(10 * time.Second)
+
+	if cfg.SentryDSN != "" {
+		sentry.Flush(2 * time.Second)
+	}
+
+	pool.Close()
 
 	slog.Info("server stopped")
 }
