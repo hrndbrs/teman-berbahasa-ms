@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	ipagination "github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
 var (
@@ -175,12 +177,6 @@ func (s *StudentService) GetStudent(ctx context.Context, id string) (*StudentDet
 }
 
 func (s *StudentService) ListStudents(ctx context.Context, params ListParams) (*ListResponse, error) {
-	if params.Page < 1 {
-		params.Page = 1
-	}
-	if params.PerPage < 1 || params.PerPage > 100 {
-		params.PerPage = 20
-	}
 	students, total, err := s.repo.List(ctx, params)
 	if err != nil {
 		return nil, err
@@ -204,17 +200,13 @@ func (s *StudentService) ListStudents(ctx context.Context, params ListParams) (*
 		items[i] = ListItem{Student: st, EnrolledBatches: codes}
 	}
 
-	totalPages := int(total) / params.PerPage
-	if int(total)%params.PerPage != 0 {
-		totalPages++
-	}
 	return &ListResponse{
 		Data: items,
 		Pagination: PaginationMeta{
 			Page:       params.Page,
 			PerPage:    params.PerPage,
 			Total:      int(total),
-			TotalPages: totalPages,
+			TotalPages: ipagination.TotalPages(total, params.PerPage),
 		},
 	}, nil
 }

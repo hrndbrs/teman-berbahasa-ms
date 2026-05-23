@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	ipagination "github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
 var (
@@ -105,19 +107,9 @@ func NewService(repo CourseRepository) *CourseService {
 }
 
 func (s *CourseService) List(ctx context.Context, params ListParams) (*ListResponse, error) {
-	if params.Page < 1 {
-		params.Page = 1
-	}
-	if params.PerPage < 1 || params.PerPage > 100 {
-		params.PerPage = 20
-	}
 	courses, total, err := s.repo.List(ctx, params)
 	if err != nil {
 		return nil, err
-	}
-	totalPages := int(total) / params.PerPage
-	if int(total)%params.PerPage != 0 {
-		totalPages++
 	}
 	return &ListResponse{
 		Data: courses,
@@ -125,7 +117,7 @@ func (s *CourseService) List(ctx context.Context, params ListParams) (*ListRespo
 			Page:       params.Page,
 			PerPage:    params.PerPage,
 			Total:      int(total),
-			TotalPages: totalPages,
+			TotalPages: ipagination.TotalPages(total, params.PerPage),
 		},
 	}, nil
 }

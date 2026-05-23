@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
 var (
@@ -157,19 +159,9 @@ func (s *UserService) GetUser(ctx context.Context, callerID, callerRole, targetI
 }
 
 func (s *UserService) ListUsers(ctx context.Context, params ListParams) (*ListResponse, error) {
-	if params.Page < 1 {
-		params.Page = 1
-	}
-	if params.PerPage < 1 || params.PerPage > 100 {
-		params.PerPage = 20
-	}
 	users, total, err := s.repo.ListUsers(ctx, params)
 	if err != nil {
 		return nil, err
-	}
-	totalPages := int(total) / params.PerPage
-	if int(total)%params.PerPage != 0 {
-		totalPages++
 	}
 	return &ListResponse{
 		Data: users,
@@ -177,7 +169,7 @@ func (s *UserService) ListUsers(ctx context.Context, params ListParams) (*ListRe
 			Page:       params.Page,
 			PerPage:    params.PerPage,
 			Total:      int(total),
-			TotalPages: totalPages,
+			TotalPages: pagination.TotalPages(total, params.PerPage),
 		},
 	}, nil
 }

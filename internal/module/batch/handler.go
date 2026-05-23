@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
 )
 
 type Handler struct {
@@ -117,8 +117,7 @@ func toBatchResp(b BatchWithDetails) batchResp {
 // ── handlers ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) listBatches(w http.ResponseWriter, r *http.Request) {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	page, perPage := pagination.ParsePage(r.URL.Query().Get("page"), r.URL.Query().Get("per_page"))
 
 	params := ListParams{Page: page, PerPage: perPage}
 	if v := r.URL.Query().Get("status"); v != "" {

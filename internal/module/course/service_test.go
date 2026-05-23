@@ -88,7 +88,7 @@ func TestList_ReturnsPaginatedResults(t *testing.T) {
 	assert.Equal(t, 1, resp.Pagination.TotalPages)
 }
 
-func TestList_DefaultsPaginationParams(t *testing.T) {
+func TestList_PassesThroughPaginationParams(t *testing.T) {
 	var capturedParams course.ListParams
 	svc := newSvc(&mockRepo{
 		listFn: func(_ context.Context, params course.ListParams) ([]course.CourseWithStats, int64, error) {
@@ -97,23 +97,9 @@ func TestList_DefaultsPaginationParams(t *testing.T) {
 		},
 	})
 
-	_, err := svc.List(context.Background(), course.ListParams{Page: 0, PerPage: 0})
+	_, err := svc.List(context.Background(), course.ListParams{Page: 1, PerPage: 20})
 	require.NoError(t, err)
 	assert.Equal(t, 1, capturedParams.Page)
-	assert.Equal(t, 20, capturedParams.PerPage)
-}
-
-func TestList_CapsPerPageAt100(t *testing.T) {
-	var capturedParams course.ListParams
-	svc := newSvc(&mockRepo{
-		listFn: func(_ context.Context, params course.ListParams) ([]course.CourseWithStats, int64, error) {
-			capturedParams = params
-			return nil, 0, nil
-		},
-	})
-
-	_, err := svc.List(context.Background(), course.ListParams{Page: 1, PerPage: 999})
-	require.NoError(t, err)
 	assert.Equal(t, 20, capturedParams.PerPage)
 }
 
