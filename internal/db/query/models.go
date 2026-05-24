@@ -38,6 +38,8 @@ type BatchesWithStat struct {
 	InstructorFirstName string             `json:"instructor_first_name"`
 	InstructorLastName  string             `json:"instructor_last_name"`
 	EnrolledCount       int64              `json:"enrolled_count"`
+	FirstClassDate      interface{}        `json:"first_class_date"`
+	LastClassDate       interface{}        `json:"last_class_date"`
 }
 
 type Course struct {
@@ -47,7 +49,7 @@ type Course struct {
 	Description  *string            `json:"description"`
 	Subject      *string            `json:"subject"`
 	Level        *string            `json:"level"`
-	SessionCount *int32             `json:"session_count"`
+	SessionCount int32              `json:"session_count"`
 	Price        pgtype.Numeric     `json:"price"`
 	MaxCapacity  *int32             `json:"max_capacity"`
 	Status       string             `json:"status"`
@@ -70,7 +72,7 @@ type CoursesWithStat struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	BatchCount        int64              `json:"batch_count"`
 	OngoingBatchCount int64              `json:"ongoing_batch_count"`
-	EnrolledCount     interface{}        `json:"enrolled_count"`
+	EnrolledCount     int64              `json:"enrolled_count"`
 }
 
 type Enrollment struct {

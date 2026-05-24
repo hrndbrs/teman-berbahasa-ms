@@ -207,6 +207,7 @@ JOIN batches b ON e.batch_id = b.id
 JOIN courses c  ON e.course_id = c.id
 WHERE e.student_id = $1
 ORDER BY e.created_at DESC
+LIMIT 50
 `
 
 type GetStudentEnrollmentsRow struct {
@@ -320,72 +321,6 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]S
 	return items, nil
 }
 
-const updateStudentFull = `-- name: UpdateStudentFull :one
-UPDATE students SET
-  first_name    = $1,
-  last_name     = $2,
-  email         = $3,
-  phone         = $4,
-  date_of_birth = $5,
-  gender        = $6,
-  address       = $7,
-  parent_name   = $8,
-  parent_phone  = $9,
-  status        = $10,
-  updated_at    = NOW()
-WHERE id = $11
-RETURNING id, first_name, last_name, email, phone, date_of_birth, gender,
-          address, parent_name, parent_phone, registration_date, status, created_at, updated_at
-`
-
-type UpdateStudentFullParams struct {
-	ID          uuid.UUID   `json:"id"`
-	FirstName   string      `json:"first_name"`
-	LastName    string      `json:"last_name"`
-	Email       *string     `json:"email"`
-	Phone       *string     `json:"phone"`
-	DateOfBirth pgtype.Date `json:"date_of_birth"`
-	Gender      *string     `json:"gender"`
-	Address     *string     `json:"address"`
-	ParentName  *string     `json:"parent_name"`
-	ParentPhone *string     `json:"parent_phone"`
-	Status      string      `json:"status"`
-}
-
-func (q *Queries) UpdateStudentFull(ctx context.Context, arg UpdateStudentFullParams) (Student, error) {
-	row := q.db.QueryRow(ctx, updateStudentFull,
-		arg.FirstName,
-		arg.LastName,
-		arg.Email,
-		arg.Phone,
-		arg.DateOfBirth,
-		arg.Gender,
-		arg.Address,
-		arg.ParentName,
-		arg.ParentPhone,
-		arg.Status,
-		arg.ID,
-	)
-	var i Student
-	err := row.Scan(
-		&i.ID,
-		&i.FirstName,
-		&i.LastName,
-		&i.Email,
-		&i.Phone,
-		&i.DateOfBirth,
-		&i.Gender,
-		&i.Address,
-		&i.ParentName,
-		&i.ParentPhone,
-		&i.RegistrationDate,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const updateStudent = `-- name: UpdateStudent :one
 UPDATE students SET
   first_name    = COALESCE($1,    first_name),
@@ -420,6 +355,72 @@ type UpdateStudentParams struct {
 
 func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error) {
 	row := q.db.QueryRow(ctx, updateStudent,
+		arg.FirstName,
+		arg.LastName,
+		arg.Email,
+		arg.Phone,
+		arg.DateOfBirth,
+		arg.Gender,
+		arg.Address,
+		arg.ParentName,
+		arg.ParentPhone,
+		arg.Status,
+		arg.ID,
+	)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.Phone,
+		&i.DateOfBirth,
+		&i.Gender,
+		&i.Address,
+		&i.ParentName,
+		&i.ParentPhone,
+		&i.RegistrationDate,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateStudentFull = `-- name: UpdateStudentFull :one
+UPDATE students SET
+  first_name    = $1,
+  last_name     = $2,
+  email         = $3,
+  phone         = $4,
+  date_of_birth = $5,
+  gender        = $6,
+  address       = $7,
+  parent_name   = $8,
+  parent_phone  = $9,
+  status        = $10,
+  updated_at    = NOW()
+WHERE id = $11
+RETURNING id, first_name, last_name, email, phone, date_of_birth, gender,
+          address, parent_name, parent_phone, registration_date, status, created_at, updated_at
+`
+
+type UpdateStudentFullParams struct {
+	FirstName   string      `json:"first_name"`
+	LastName    string      `json:"last_name"`
+	Email       *string     `json:"email"`
+	Phone       *string     `json:"phone"`
+	DateOfBirth pgtype.Date `json:"date_of_birth"`
+	Gender      *string     `json:"gender"`
+	Address     *string     `json:"address"`
+	ParentName  *string     `json:"parent_name"`
+	ParentPhone *string     `json:"parent_phone"`
+	Status      string      `json:"status"`
+	ID          uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) UpdateStudentFull(ctx context.Context, arg UpdateStudentFullParams) (Student, error) {
+	row := q.db.QueryRow(ctx, updateStudentFull,
 		arg.FirstName,
 		arg.LastName,
 		arg.Email,

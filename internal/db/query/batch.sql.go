@@ -114,19 +114,20 @@ func (q *Queries) DeleteBatch(ctx context.Context, id uuid.UUID) error {
 
 const deleteBatchIfEmpty = `-- name: DeleteBatchIfEmpty :one
 DELETE FROM batches
-WHERE id = $1
+WHERE batches.id = $1
   AND NOT EXISTS (
       SELECT 1 FROM enrollments
       WHERE batch_id = $1
-        AND status != 'dropped'
+        AND enrollments.status != 'dropped'
   )
-RETURNING id
+RETURNING batches.id
 `
 
 func (q *Queries) DeleteBatchIfEmpty(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, deleteBatchIfEmpty, id)
-	err := row.Scan(&id)
-	return id, err
+	var id_2 uuid.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
 }
 
 const existsActiveTeacher = `-- name: ExistsActiveTeacher :one
@@ -144,7 +145,7 @@ func (q *Queries) ExistsActiveTeacher(ctx context.Context, id uuid.UUID) (bool, 
 }
 
 const getBatchByID = `-- name: GetBatchByID :one
-SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count FROM batches_with_stats WHERE id = $1
+SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count, first_class_date, last_class_date FROM batches_with_stats WHERE id = $1
 `
 
 func (q *Queries) GetBatchByID(ctx context.Context, id uuid.UUID) (BatchesWithStat, error) {
@@ -166,12 +167,14 @@ func (q *Queries) GetBatchByID(ctx context.Context, id uuid.UUID) (BatchesWithSt
 		&i.InstructorFirstName,
 		&i.InstructorLastName,
 		&i.EnrolledCount,
+		&i.FirstClassDate,
+		&i.LastClassDate,
 	)
 	return i, err
 }
 
 const listBatches = `-- name: ListBatches :many
-SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count FROM batches_with_stats
+SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count, first_class_date, last_class_date FROM batches_with_stats
 WHERE
     ($1::text    IS NULL OR status    = $1) AND
     ($2::uuid IS NULL OR course_id = $2) AND
@@ -224,6 +227,8 @@ func (q *Queries) ListBatches(ctx context.Context, arg ListBatchesParams) ([]Bat
 			&i.InstructorFirstName,
 			&i.InstructorLastName,
 			&i.EnrolledCount,
+			&i.FirstClassDate,
+			&i.LastClassDate,
 		); err != nil {
 			return nil, err
 		}

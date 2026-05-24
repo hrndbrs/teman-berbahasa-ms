@@ -83,13 +83,13 @@ RETURNING id, course_name, course_code, description, subject, level, session_cou
 UPDATE courses SET
   status     = 'archived',
   updated_at = NOW()
-WHERE id = sqlc.arg('id')
-  AND status = 'active'
+WHERE courses.id = sqlc.arg('id')
+  AND courses.status = 'active'
   AND NOT EXISTS (
       SELECT 1 FROM batches
-      WHERE course_id = sqlc.arg('id') AND status = 'ongoing'
+      WHERE course_id = sqlc.arg('id') AND batches.status = 'ongoing'
   )
-RETURNING id, status, updated_at;
+RETURNING courses.id, courses.status, courses.updated_at;
 
 -- name: CountOngoingBatchesByCourse :one
 SELECT COUNT(*)::bigint

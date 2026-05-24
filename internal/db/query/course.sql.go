@@ -16,13 +16,13 @@ const archiveCourse = `-- name: ArchiveCourse :one
 UPDATE courses SET
   status     = 'archived',
   updated_at = NOW()
-WHERE id = $1
-  AND status = 'active'
+WHERE courses.id = $1
+  AND courses.status = 'active'
   AND NOT EXISTS (
       SELECT 1 FROM batches
-      WHERE course_id = $1 AND status = 'ongoing'
+      WHERE course_id = $1 AND batches.status = 'ongoing'
   )
-RETURNING id, status, updated_at
+RETURNING courses.id, courses.status, courses.updated_at
 `
 
 type ArchiveCourseRow struct {
@@ -141,18 +141,21 @@ SELECT
   c.session_count, c.price, c.max_capacity, c.status, c.created_at, c.updated_at,
   COUNT(b.id)::bigint                                       AS batch_count,
   COUNT(b.id) FILTER (WHERE b.status = 'ongoing')::bigint   AS ongoing_batch_count,
-  COALESCE((
-    SELECT COUNT(*)::bigint
-    FROM enrollments e
-    WHERE e.course_id = c.id AND e.status != 'dropped'
-  ), 0)                                                      AS enrolled_count
+  COALESCE(ec.enrolled_count, 0)                            AS enrolled_count
 FROM courses c
 LEFT JOIN batches b ON b.course_id = c.id
+LEFT JOIN (
+    SELECT course_id,
+           COUNT(*) FILTER (WHERE status != 'dropped')::bigint AS enrolled_count
+    FROM enrollments
+    GROUP BY course_id
+) ec ON ec.course_id = c.id
 WHERE c.id = $1
 GROUP BY
   c.id, c.course_name, c.course_code, c.description, c.subject,
   c.level, c.session_count, c.price, c.max_capacity, c.status,
-  c.created_at, c.updated_at
+  c.created_at, c.updated_at,
+  ec.enrolled_count
 `
 
 type GetCourseByIDRow struct {
@@ -162,7 +165,7 @@ type GetCourseByIDRow struct {
 	Description       *string            `json:"description"`
 	Subject           *string            `json:"subject"`
 	Level             *string            `json:"level"`
-	SessionCount      *int32             `json:"session_count"`
+	SessionCount      int32              `json:"session_count"`
 	Price             pgtype.Numeric     `json:"price"`
 	MaxCapacity       *int32             `json:"max_capacity"`
 	Status            string             `json:"status"`
@@ -170,7 +173,7 @@ type GetCourseByIDRow struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	BatchCount        int64              `json:"batch_count"`
 	OngoingBatchCount int64              `json:"ongoing_batch_count"`
-	EnrolledCount     interface{}        `json:"enrolled_count"`
+	EnrolledCount     int64              `json:"enrolled_count"`
 }
 
 func (q *Queries) GetCourseByID(ctx context.Context, id uuid.UUID) (GetCourseByIDRow, error) {

@@ -64,13 +64,13 @@ DELETE FROM batches WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchIfEmpty :one
 DELETE FROM batches
-WHERE id = @id
+WHERE batches.id = @id
   AND NOT EXISTS (
       SELECT 1 FROM enrollments
       WHERE batch_id = @id
-        AND status != 'dropped'
+        AND enrollments.status != 'dropped'
   )
-RETURNING id;
+RETURNING batches.id;
 
 -- name: CountActiveEnrollments :one
 SELECT COUNT(*)::bigint
