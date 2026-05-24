@@ -1218,6 +1218,361 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  # ── Schedules ──────────────────────────────────────────────────────────────
+
+  /batches/{id}/schedules:
+    get:
+      tags: [Schedules]
+      operationId: listSchedulesByBatch
+      summary: List schedules for a batch
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of schedules.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Schedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Schedules]
+      operationId: createSchedule
+      summary: Create a schedule slot for a batch
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleRequest"
+      responses:
+        "201":
+          description: Schedule created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /schedules/weekly:
+    get:
+      tags: [Schedules]
+      operationId: getWeeklySchedule
+      summary: Get expanded weekly calendar view
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: week_start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Monday of the target week (defaults to current week).
+        - name: level
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by course level.
+        - name: batch_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by batch ID.
+        - name: course_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by course ID.
+      responses:
+        "200":
+          description: Weekly calendar with expanded sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /schedules/{id}:
+    get:
+      tags: [Schedules]
+      operationId: getSchedule
+      summary: Get a schedule slot by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Schedule details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags: [Schedules]
+      operationId: updateSchedule
+      summary: Update a schedule slot (partial)
+      description: |
+        Partial update. Only sent fields are changed. Use explicit `null` for
+        `instructor_user_id`, `room`, and `effective_until` to clear those values.
+
+        Session count cap is re-enforced against the updated parameters,
+        excluding the old count for this schedule.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleRequest"
+      responses:
+        "200":
+          description: Schedule updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Schedules]
+      operationId: deleteSchedule
+      summary: Delete a schedule slot
+      description: Hard delete. Overrides cascade.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /schedules/{id}/overrides:
+    post:
+      tags: [Schedule Overrides]
+      operationId: createOverride
+      summary: Create or upsert a schedule override
+      description: |
+        Upserts an override for a specific date. Override types:
+
+        - `reschedule`: Move the session to a new date/time. `new_date` is required.
+        - `instructor_change`: Change the instructor for the session.
+          Must not include `new_date` or new times.
+
+        Teachers can only create overrides for their own batches.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Schedule ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOverrideRequest"
+      responses:
+        "201":
+          description: Override created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleOverride"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /schedule-overrides/{id}:
+    get:
+      tags: [Schedule Overrides]
+      operationId: getOverride
+      summary: Get a schedule override by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Override details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleOverride"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags: [Schedule Overrides]
+      operationId: updateOverride
+      summary: Update a schedule override (partial)
+      description: |
+        Updates sent fields. Merge+re-validate of type constraints is enforced
+        after applying the patch.
+
+        Teachers can only update overrides for their own batches.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOverrideRequest"
+      responses:
+        "200":
+          description: Override updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleOverride"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Schedule Overrides]
+      operationId: deleteOverride
+      summary: Delete a schedule override
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1518,7 +1873,7 @@ components:
 
     BatchRef:
       type: object
-      required: [id, batch_name, batch_code, status]
+      required: [id, batch_name, batch_code]
       properties:
         id:
           type: string
@@ -1984,6 +2339,295 @@ components:
           description: |
             Freeform grade string (e.g. "A", "85", "Pass"). Only settable when enrollment status is `completed`.
             Send explicit `null` to clear.
+
+    # ── Schedule schemas ────────────────────────────────────────────────────────
+
+    Schedule:
+      type: object
+      required:
+        [id, batch_id, course_id, day_of_week, start_time, end_time,
+         recurrence, effective_from, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+        course_id:
+          type: string
+          format: uuid
+        instructor:
+          allOf:
+            - $ref: "#/components/schemas/InstructorRef"
+          nullable: true
+        day_of_week:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        start_time:
+          type: string
+          example: "09:00:00"
+        end_time:
+          type: string
+          example: "11:00:00"
+        room:
+          type: string
+          nullable: true
+        recurrence:
+          type: string
+          enum: [weekly, one-time]
+        effective_from:
+          type: string
+          format: date
+        effective_until:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateScheduleRequest:
+      type: object
+      required: [day_of_week, start_time, end_time, recurrence, effective_from]
+      properties:
+        instructor_user_id:
+          type: string
+          format: uuid
+          description: Instructor assigned to this schedule slot (optional).
+        day_of_week:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        start_time:
+          type: string
+          description: "24h time. Accepts HH:MM or HH:MM:SS."
+          example: "09:00"
+        end_time:
+          type: string
+          description: "24h time. Accepts HH:MM or HH:MM:SS."
+          example: "11:00"
+        room:
+          type: string
+          description: Room number or name (optional).
+        recurrence:
+          type: string
+          enum: [weekly, one-time]
+        effective_from:
+          type: string
+          format: date
+        effective_until:
+          type: string
+          format: date
+          description: Required for `one-time` (set automatically).
+
+    UpdateScheduleRequest:
+      type: object
+      description: |
+        All fields optional. Omit a field to leave it unchanged.
+        Send explicit `null` for `instructor_user_id`, `room`, and `effective_until` to clear.
+      properties:
+        instructor_user_id:
+          type: [string, "null"]
+          format: uuid
+          description: Send explicit `null` to clear the instructor assignment.
+        day_of_week:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        start_time:
+          type: string
+          description: "24h time. Accepts HH:MM or HH:MM:SS."
+          example: "09:00"
+        end_time:
+          type: string
+          description: "24h time. Accepts HH:MM or HH:MM:SS."
+          example: "11:00"
+        room:
+          type: [string, "null"]
+          description: Send explicit `null` to clear the room.
+        recurrence:
+          type: string
+          enum: [weekly, one-time]
+        effective_from:
+          type: string
+          format: date
+        effective_until:
+          type: [string, "null"]
+          format: date
+          description: Send explicit `null` to make the schedule open-ended.
+
+    InstructorRef:
+      type: object
+      required: [id, first_name, last_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+
+    ScheduleOverride:
+      type: object
+      required:
+        [id, schedule_id, original_date, override_type,
+         created_by_user_id, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        schedule_id:
+          type: string
+          format: uuid
+        original_date:
+          type: string
+          format: date
+        override_type:
+          type: string
+          enum: [reschedule, instructor_change]
+        new_date:
+          type: string
+          format: date
+          nullable: true
+        new_start_time:
+          type: string
+          nullable: true
+          example: "10:00:00"
+        new_end_time:
+          type: string
+          nullable: true
+          example: "12:00:00"
+        new_room:
+          type: string
+          nullable: true
+        new_instructor:
+          allOf:
+            - $ref: "#/components/schemas/InstructorRef"
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        created_by_user_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    CreateOverrideRequest:
+      type: object
+      required: [original_date, override_type]
+      properties:
+        original_date:
+          type: string
+          format: date
+        override_type:
+          type: string
+          enum: [reschedule, instructor_change]
+        new_date:
+          type: string
+          format: date
+          description: Required for `reschedule`. Must not be set for `instructor_change`.
+        new_start_time:
+          type: string
+          description: "24h time, HH:MM or HH:MM:SS. Must not be set for `instructor_change`."
+          example: "10:00"
+        new_end_time:
+          type: string
+          description: "24h time, HH:MM or HH:MM:SS. Must not be set for `instructor_change`."
+          example: "12:00"
+        new_room:
+          type: string
+        new_instructor_user_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+
+    UpdateOverrideRequest:
+      type: object
+      description: All fields optional. Omit to leave unchanged.
+      properties:
+        new_date:
+          type: [string, "null"]
+          format: date
+        new_start_time:
+          type: string
+          description: "24h time. Accepts HH:MM or HH:MM:SS."
+          example: "10:00"
+        new_end_time:
+          type: string
+          description: "24h time. Accepts HH:MM or HH:MM:SS."
+          example: "12:00"
+        new_room:
+          type: string
+        new_instructor_user_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+
+    Session:
+      type: object
+      properties:
+        schedule_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        original_date:
+          type: string
+          format: date
+          nullable: true
+          description: Non-null when rescheduled from a different date.
+        day_of_week:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        start_time:
+          type: string
+          example: "09:00:00"
+        end_time:
+          type: string
+          example: "11:00:00"
+        room:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [scheduled, rescheduled, instructor_changed]
+        effective_instructor:
+          $ref: "#/components/schemas/InstructorRef"
+        batch:
+          $ref: "#/components/schemas/BatchRef"
+        course:
+          $ref: "#/components/schemas/CourseRef"
+        override:
+          allOf:
+            - $ref: "#/components/schemas/ScheduleOverride"
+          nullable: true
+
+    WeeklyResponse:
+      type: object
+      properties:
+        week_start:
+          type: string
+          format: date
+        week_end:
+          type: string
+          format: date
+        total_sessions:
+          type: integer
+        total_hours:
+          type: number
+          format: float
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Session"
 
     MessageResponse:
       type: object

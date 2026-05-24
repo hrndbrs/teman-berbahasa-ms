@@ -11,7 +11,7 @@
 - All IDs: UUID v7 string — `"019687a2-1234-7abc-8def-000000000001"`
 - All datetimes: ISO 8601, UTC — `"2025-05-18T07:00:00Z"`
 - All dates (no time component): `"2025-05-18"`
-- All times (no date): `"09:00:00"` (24-hour, HH:MM:SS)
+- All times (no date): `"09:00:00"` (24-hour, HH:MM:SS) in responses. Inputs accept both `"HH:MM"` and `"HH:MM:SS"`.
 - Nullable fields marked `null` in examples. **On `PATCH` input, `null` and absent are NOT equivalent:** sending `"field": null` clears the value; omitting the key leaves the existing value unchanged.
 - `PATCH` requests are partial — only included fields are updated
 - Field names: `snake_case` throughout
@@ -90,7 +90,7 @@ Enums are always transmitted as lowercase strings. Never send or expect integer 
 
 | Enum           | Values                                                |
 | -------------- | ----------------------------------------------------- |
-| `OverrideType` | `"reschedule"` `"cancellation"` `"instructor_change"` |
+| `OverrideType` | `"reschedule"` `"instructor_change"` |
 
 ### Event
 
@@ -1068,12 +1068,12 @@ No request body.
 | `id`                     | UUID v7      | No       | PK                                                                                                                                                                     |
 | `schedule_id`            | UUID         | No       | FK → schedules. Which recurring slot is being overridden.                                                                                                              |
 | `original_date`          | DATE         | No       | The specific calendar date of the session being affected. Combined with `schedule_id`, must be unique — only one override per session per slot.                        |
-| `override_type`          | ENUM         | No       | Determines which other fields are meaningful: `reschedule` changes time/date/room; `cancellation` voids the session; `instructor_change` replaces only the instructor. |
+| `override_type`          | ENUM         | No       | Determines which other fields are meaningful: `reschedule` changes time/date/room; `instructor_change` replaces only the instructor. |
 | `new_date`               | DATE         | Yes      | Required when `override_type = reschedule`. The rescheduled date.                                                                                                      |
 | `new_start_time`         | TIME         | Yes      | New start time. Only set for `reschedule`.                                                                                                                             |
 | `new_end_time`           | TIME         | Yes      | New end time. Only set for `reschedule`.                                                                                                                               |
 | `new_room`               | VARCHAR(100) | Yes      | New room. Can be set for `reschedule` or standalone room change.                                                                                                       |
-| `new_instructor_user_id` | UUID         | Yes      | FK → users. Required for `instructor_change`. Optional for `reschedule`. Null for `cancellation`.                                                                      |
+| `new_instructor_user_id` | UUID         | Yes      | FK → users. Required for `instructor_change`. Optional for `reschedule`.                                                                                               |
 | `reason`                 | TEXT         | Yes      | Free-text explanation. Shown in override list for auditing.                                                                                                            |
 | `created_by_user_id`     | UUID         | No       | FK → users. Server-set from JWT — who logged this override.                                                                                                            |
 | `created_at`             | TIMESTAMPTZ  | No       | —                                                                                                                                                                      |
@@ -1082,46 +1082,28 @@ No request body.
 
 ---
 
-### `GET /schedules/:schedule_id/overrides`
+### `GET /schedule-overrides/:id`
 
 **Response `200`:**
 
 ```json
 {
-  "data": [
-    {
-      "id": "019687a2-0007-7000-8000-000000000001",
-      "schedule_id": "019687a2-0006-7000-8000-000000000001",
-      "original_date": "2025-03-10",
-      "override_type": "instructor_change",
-      "new_date": null,
-      "new_start_time": null,
-      "new_end_time": null,
-      "new_room": null,
-      "new_instructor": {
-        "id": "019687a2-0001-7000-8000-000000000002",
-        "first_name": "Sari",
-        "last_name": "Indah",
-        "email": "sari@tutorplace.id",
-        "role": "teacher"
-      },
-      "reason": "Budi sedang sakit",
-      "created_by": {
-        "id": "019687a2-0001-7000-8000-000000000099",
-        "first_name": "Admin",
-        "last_name": "Utama",
-        "email": "admin@tutorplace.id",
-        "role": "admin"
-      },
-      "created_at": "2025-03-09T05:00:00Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "per_page": 20,
-    "total": 1,
-    "total_pages": 1
-  }
+  "id": "019687a2-0007-7000-8000-000000000001",
+  "schedule_id": "019687a2-0006-7000-8000-000000000001",
+  "original_date": "2025-03-10",
+  "override_type": "instructor_change",
+  "new_date": null,
+  "new_start_time": null,
+  "new_end_time": null,
+  "new_room": null,
+  "new_instructor": {
+    "id": "019687a2-0001-7000-8000-000000000002",
+    "first_name": "Sari",
+    "last_name": "Indah"
+  },
+  "reason": "Budi sedang sakit",
+  "created_by_user_id": "019687a2-0001-7000-8000-000000000099",
+  "created_at": "2025-03-09T05:00:00Z"
 }
 ```
 
@@ -1154,17 +1136,7 @@ No request body.
 }
 ```
 
-**Request — `cancellation`:**
-
-```json
-{
-  "original_date": "2025-03-17",
-  "override_type": "cancellation",
-  "reason": "Libur nasional"
-}
-```
-
-**Response `201`:** Full override object (same shape as list item).
+**Response `201`:** Full override object (same shape as `GET /schedule-overrides/:id`).
 
 ---
 

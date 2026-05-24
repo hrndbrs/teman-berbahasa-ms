@@ -118,14 +118,14 @@
 
 ### SCHEDULE_OVERRIDE
 
-> Handles **one-off exceptions** to a recurring schedule — a single session that is rescheduled, cancelled, or reassigned to a different instructor. Keeps the base SCHEDULE clean and exceptions fully auditable.
+> Handles **one-off exceptions** to a recurring schedule — a single session that is rescheduled or reassigned to a different instructor. Keeps the base SCHEDULE clean and exceptions fully auditable.
 
 | Column                   | Type     | Constraint                                          |
 | ------------------------ | -------- | --------------------------------------------------- |
 | `override_id`            | INT      | PK                                                  |
 | `schedule_id`            | INT      | FK → SCHEDULE — the recurring slot being overridden |
 | `original_date`          | DATE     | NOT NULL — the specific session date being affected |
-| `override_type`          | ENUM     | `reschedule`, `cancellation`, `instructor_change`   |
+| `override_type`          | ENUM     | `reschedule`, `instructor_change`                   |
 | `new_date`               | DATE     | nullable — set if rescheduled to a different day    |
 | `new_start_time`         | TIME     | nullable — set if time changes                      |
 | `new_end_time`           | TIME     | nullable — set if time changes                      |

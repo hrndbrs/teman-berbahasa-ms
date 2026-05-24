@@ -283,7 +283,7 @@ Use `pgx` `BeginTx` with `pgx.TxOptions{IsoLevel: pgx.Serializable}` or advisory
 
 - CRUD for recurring schedule slots per batch
 - Instructor override per slot (null = inherit from batch)
-- Log one-off session overrides (reschedule, cancellation, instructor change)
+- Log one-off session overrides (reschedule, instructor change)
 - Resolve effective instructor for any session
 
 **Owned data:** `schedules`, `schedule_overrides`
@@ -292,10 +292,12 @@ Use `pgx` `BeginTx` with `pgx.TxOptions{IsoLevel: pgx.Serializable}` or advisory
 
 - `GET /batches/:batch_id/schedules`
 - `POST /batches/:batch_id/schedules`
+- `GET /schedules/weekly`
+- `GET /schedules/:id`
 - `PATCH /schedules/:id`
 - `DELETE /schedules/:id`
-- `GET /schedules/:schedule_id/overrides`
-- `POST /schedules/:schedule_id/overrides`
+- `POST /schedules/:id/overrides`
+- `GET /schedule-overrides/:id`
 - `PATCH /schedule-overrides/:id`
 - `DELETE /schedule-overrides/:id`
 
@@ -317,8 +319,8 @@ func ResolveInstructor(override *ScheduleOverride, slot Schedule, batch Batch) *
 
 - One override per `(schedule_id, original_date)` — DB unique constraint
 - `original_date` must be within `schedule.effective_from` / `effective_until`
-- `override_type = cancellation` → `new_date`, `new_start_time`, `new_end_time` must be nil
-- `override_type = reschedule` → `new_date` required
+- `override_type = reschedule` → `new_date` required; `new_start_time`, `new_end_time` optional
+- `override_type = instructor_change` → `new_date`, `new_start_time`, `new_end_time` must be nil
 
 ---
 
@@ -624,16 +626,18 @@ sequenceDiagram
 
 ### Schedules
 
-| Method | Path                       | Purpose              | Auth           | Idempotent |
-| ------ | -------------------------- | -------------------- | -------------- | ---------- |
-| GET    | `/batches/:id/schedules`   | List schedules       | ✅ Any         | Yes        |
-| POST   | `/batches/:id/schedules`   | Create schedule slot | ✅ Admin/Staff | No         |
-| PATCH  | `/schedules/:id`           | Update slot          | ✅ Admin/Staff | Yes        |
-| DELETE | `/schedules/:id`           | Remove slot          | ✅ Admin/Staff | Yes        |
-| GET    | `/schedules/:id/overrides` | List overrides       | ✅ Any         | Yes        |
-| POST   | `/schedules/:id/overrides` | Log override         | ✅ Any Auth    | No         |
-| PATCH  | `/schedule-overrides/:id`  | Edit override        | ✅ Admin/Staff | Yes        |
-| DELETE | `/schedule-overrides/:id`  | Remove override      | ✅ Admin/Staff | Yes        |
+| Method | Path                       | Purpose                | Auth                        | Idempotent |
+| ------ | -------------------------- | ---------------------- | --------------------------- | ---------- |
+| GET    | `/batches/:id/schedules`   | List schedules         | ✅ Any                      | Yes        |
+| POST   | `/batches/:id/schedules`   | Create schedule slot   | ✅ Admin/Staff              | No         |
+| GET    | `/schedules/weekly`        | Weekly calendar view   | ✅ Any                      | Yes        |
+| GET    | `/schedules/:id`           | Get schedule by ID     | ✅ Any                      | Yes        |
+| PATCH  | `/schedules/:id`           | Update slot            | ✅ Admin/Staff              | Yes        |
+| DELETE | `/schedules/:id`           | Remove slot            | ✅ Admin/Staff              | Yes        |
+| POST   | `/schedules/:id/overrides` | Create/upsert override | ✅ Any Auth (teacher: own)  | No         |
+| GET    | `/schedule-overrides/:id`  | Get override by ID     | ✅ Any                      | Yes        |
+| PATCH  | `/schedule-overrides/:id`  | Edit override          | ✅ Any Auth (teacher: own)  | Yes        |
+| DELETE | `/schedule-overrides/:id`  | Remove override        | ✅ Admin/Staff              | Yes        |
 
 ### Events
 

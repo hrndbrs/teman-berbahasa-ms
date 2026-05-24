@@ -74,7 +74,7 @@ No ORM. Raw SQL via sqlc. No Redis — async jobs via in-process goroutine worke
 
 - All IDs: UUID v7 string — `"019687a2-1234-7abc-8def-000000000001"`
 - All datetimes: ISO 8601 UTC — `"2025-05-18T07:00:00Z"`
-- All dates: `"2025-05-18"`, all times: `"09:00:00"` (24h, WIB/UTC+7)
+- All dates: `"2025-05-18"`, all times: `"09:00:00"` (24h, WIB/UTC+7). Time inputs accept both `"HH:MM"` and `"HH:MM:SS"`; responses always return `"HH:MM:SS"`.
 - Field names: `snake_case` throughout
 - `PATCH` is partial — only sent fields are updated. Nullable fields support explicit `null` to clear: send `"field": null` to set to NULL, omit the key to leave unchanged. Implemented via `internal/patch.Patchable[T]` with custom `UnmarshalJSON`.
 - Enums: lowercase strings (never integers)
