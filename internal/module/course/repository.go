@@ -61,6 +61,7 @@ func toInt64(v interface{}) int64 {
 }
 
 func rowToCourse(row dbq.Course) Course {
+	sc := row.SessionCount
 	return Course{
 		ID:            row.ID,
 		CourseName:    row.CourseName,
@@ -68,7 +69,7 @@ func rowToCourse(row dbq.Course) Course {
 		Description:   row.Description,
 		Subject:       row.Subject,
 		Level:         row.Level,
-		SessionCount: row.SessionCount,
+		SessionCount: &sc,
 		Price:         numericToString(row.Price),
 		MaxCapacity:   row.MaxCapacity,
 		Status:        row.Status,
@@ -118,6 +119,7 @@ func listRowToCourseWithStats(row dbq.CoursesWithStat) CourseWithStats {
 }
 
 func getByIDRowToCourseWithStats(row dbq.GetCourseByIDRow) CourseWithStats {
+	sc := row.SessionCount
 	return CourseWithStats{
 		Course: Course{
 			ID:            row.ID,
@@ -126,7 +128,7 @@ func getByIDRowToCourseWithStats(row dbq.GetCourseByIDRow) CourseWithStats {
 			Description:   row.Description,
 			Subject:       row.Subject,
 			Level:         row.Level,
-			SessionCount: row.SessionCount,
+			SessionCount: &sc,
 			Price:         numericToString(row.Price),
 			MaxCapacity:   row.MaxCapacity,
 			Status:        row.Status,
