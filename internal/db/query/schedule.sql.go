@@ -124,7 +124,7 @@ const getOverrideByID = `-- name: GetOverrideByID :one
 SELECT
     o.id, o.schedule_id, o.original_date, o.override_type,
     o.new_date, o.new_start_time, o.new_end_time, o.new_room,
-    o.new_instructor_user_id, o.reason, o.created_by_user_id, o.created_at,
+    o.new_instructor_user_id, o.reason, o.creator_user_id, o.created_at,
     u.first_name AS new_instructor_first_name,
     u.last_name  AS new_instructor_last_name
 FROM schedule_overrides o
@@ -143,7 +143,7 @@ type GetOverrideByIDRow struct {
 	NewRoom                *string            `json:"new_room"`
 	NewInstructorUserID    pgtype.UUID        `json:"new_instructor_user_id"`
 	Reason                 *string            `json:"reason"`
-	CreatedByUserID        uuid.UUID          `json:"created_by_user_id"`
+	CreatorUserID          uuid.UUID          `json:"creator_user_id"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	NewInstructorFirstName *string            `json:"new_instructor_first_name"`
 	NewInstructorLastName  *string            `json:"new_instructor_last_name"`
@@ -163,7 +163,7 @@ func (q *Queries) GetOverrideByID(ctx context.Context, id uuid.UUID) (GetOverrid
 		&i.NewRoom,
 		&i.NewInstructorUserID,
 		&i.Reason,
-		&i.CreatedByUserID,
+		&i.CreatorUserID,
 		&i.CreatedAt,
 		&i.NewInstructorFirstName,
 		&i.NewInstructorLastName,
@@ -175,7 +175,7 @@ const getOverridesByScheduleIDs = `-- name: GetOverridesByScheduleIDs :many
 SELECT
     o.id, o.schedule_id, o.original_date, o.override_type,
     o.new_date, o.new_start_time, o.new_end_time, o.new_room,
-    o.new_instructor_user_id, o.reason, o.created_by_user_id, o.created_at,
+    o.new_instructor_user_id, o.reason, o.creator_user_id, o.created_at,
     u.first_name AS new_instructor_first_name,
     u.last_name  AS new_instructor_last_name
 FROM schedule_overrides o
@@ -207,7 +207,7 @@ type GetOverridesByScheduleIDsRow struct {
 	NewRoom                *string            `json:"new_room"`
 	NewInstructorUserID    pgtype.UUID        `json:"new_instructor_user_id"`
 	Reason                 *string            `json:"reason"`
-	CreatedByUserID        uuid.UUID          `json:"created_by_user_id"`
+	CreatorUserID          uuid.UUID          `json:"creator_user_id"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	NewInstructorFirstName *string            `json:"new_instructor_first_name"`
 	NewInstructorLastName  *string            `json:"new_instructor_last_name"`
@@ -233,7 +233,7 @@ func (q *Queries) GetOverridesByScheduleIDs(ctx context.Context, arg GetOverride
 			&i.NewRoom,
 			&i.NewInstructorUserID,
 			&i.Reason,
-			&i.CreatedByUserID,
+			&i.CreatorUserID,
 			&i.CreatedAt,
 			&i.NewInstructorFirstName,
 			&i.NewInstructorLastName,
@@ -536,7 +536,7 @@ UPDATE schedule_overrides SET
     new_instructor_user_id = $5,
     reason                 = $6
 WHERE id = $7
-RETURNING id, schedule_id, original_date, override_type, new_date, new_start_time, new_end_time, new_room, new_instructor_user_id, reason, created_by_user_id, created_at
+RETURNING id, schedule_id, original_date, override_type, new_date, new_start_time, new_end_time, new_room, new_instructor_user_id, reason, creator_user_id, created_at
 `
 
 type UpdateScheduleOverrideParams struct {
@@ -571,7 +571,7 @@ func (q *Queries) UpdateScheduleOverride(ctx context.Context, arg UpdateSchedule
 		&i.NewRoom,
 		&i.NewInstructorUserID,
 		&i.Reason,
-		&i.CreatedByUserID,
+		&i.CreatorUserID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -581,7 +581,7 @@ const upsertScheduleOverride = `-- name: UpsertScheduleOverride :one
 INSERT INTO schedule_overrides (
     id, schedule_id, original_date, override_type,
     new_date, new_start_time, new_end_time, new_room,
-    new_instructor_user_id, reason, created_by_user_id
+    new_instructor_user_id, reason, creator_user_id
 ) VALUES (
     $1, $2, $3,
     $4,
@@ -596,8 +596,8 @@ ON CONFLICT (schedule_id, original_date) DO UPDATE SET
     new_room               = EXCLUDED.new_room,
     new_instructor_user_id = EXCLUDED.new_instructor_user_id,
     reason                 = EXCLUDED.reason,
-    created_by_user_id     = EXCLUDED.created_by_user_id
-RETURNING id, schedule_id, original_date, override_type, new_date, new_start_time, new_end_time, new_room, new_instructor_user_id, reason, created_by_user_id, created_at
+    creator_user_id     = EXCLUDED.creator_user_id
+RETURNING id, schedule_id, original_date, override_type, new_date, new_start_time, new_end_time, new_room, new_instructor_user_id, reason, creator_user_id, created_at
 `
 
 type UpsertScheduleOverrideParams struct {
@@ -611,7 +611,7 @@ type UpsertScheduleOverrideParams struct {
 	NewRoom             *string     `json:"new_room"`
 	NewInstructorUserID pgtype.UUID `json:"new_instructor_user_id"`
 	Reason              *string     `json:"reason"`
-	CreatedByUserID     uuid.UUID   `json:"created_by_user_id"`
+	CreatorUserID       uuid.UUID   `json:"creator_user_id"`
 }
 
 func (q *Queries) UpsertScheduleOverride(ctx context.Context, arg UpsertScheduleOverrideParams) (ScheduleOverride, error) {
@@ -626,7 +626,7 @@ func (q *Queries) UpsertScheduleOverride(ctx context.Context, arg UpsertSchedule
 		arg.NewRoom,
 		arg.NewInstructorUserID,
 		arg.Reason,
-		arg.CreatedByUserID,
+		arg.CreatorUserID,
 	)
 	var i ScheduleOverride
 	err := row.Scan(
@@ -640,7 +640,7 @@ func (q *Queries) UpsertScheduleOverride(ctx context.Context, arg UpsertSchedule
 		&i.NewRoom,
 		&i.NewInstructorUserID,
 		&i.Reason,
-		&i.CreatedByUserID,
+		&i.CreatorUserID,
 		&i.CreatedAt,
 	)
 	return i, err

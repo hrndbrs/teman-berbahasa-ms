@@ -313,7 +313,7 @@ func overrideWeekRowToOverrideForWeek(row dbq.GetOverridesByScheduleIDsRow) Over
 		NewInstructorFirstName: row.NewInstructorFirstName,
 		NewInstructorLastName:  row.NewInstructorLastName,
 		Reason:                 row.Reason,
-		CreatedByUserID:        row.CreatedByUserID,
+		CreatorUserID:          row.CreatorUserID,
 		CreatedAt:              row.CreatedAt.Time,
 	}
 }
@@ -332,7 +332,7 @@ func (r *pgScheduleRepository) UpsertOverride(ctx context.Context, id uuid.UUID,
 		NewRoom:             req.NewRoom,
 		NewInstructorUserID: toPgtypeUUID(req.NewInstructorUserID),
 		Reason:              req.Reason,
-		CreatedByUserID:     req.CreatedByUserID,
+		CreatorUserID:       req.CreatorUserID,
 	})
 	if err != nil {
 		return ScheduleOverride{}, err
@@ -352,7 +352,7 @@ func rowToOverride(row dbq.ScheduleOverride) ScheduleOverride {
 		NewRoom:             row.NewRoom,
 		NewInstructorUserID: fromPgtypeUUID(row.NewInstructorUserID),
 		Reason:              row.Reason,
-		CreatedByUserID:     row.CreatedByUserID,
+		CreatorUserID:       row.CreatorUserID,
 		CreatedAt:           row.CreatedAt.Time,
 	}
 }
@@ -376,7 +376,7 @@ func (r *pgScheduleRepository) GetOverrideByID(ctx context.Context, id uuid.UUID
 		NewRoom:             row.NewRoom,
 		NewInstructorUserID: row.NewInstructorUserID,
 		Reason:              row.Reason,
-		CreatedByUserID:     row.CreatedByUserID,
+		CreatorUserID:       row.CreatorUserID,
 		CreatedAt:           row.CreatedAt,
 	})
 	o.NewInstructorFirstName = row.NewInstructorFirstName

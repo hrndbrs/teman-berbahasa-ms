@@ -122,23 +122,23 @@ type overrideResp struct {
 	NewRoom       *string        `json:"new_room"`
 	NewInstructor *instructorRef `json:"new_instructor"`
 	Reason        *string        `json:"reason"`
-	CreatedBy     string         `json:"created_by_user_id"`
+	CreatorUserID string         `json:"creator_user_id"`
 	CreatedAt     string         `json:"created_at"`
 }
 
 type sessionResp struct {
-	ScheduleID          string         `json:"schedule_id"`
-	Date                string         `json:"date"`
-	OriginalDate        *string        `json:"original_date"`
-	DayOfWeek           string         `json:"day_of_week"`
-	StartTime           string         `json:"start_time"`
-	EndTime             string         `json:"end_time"`
-	Room                *string        `json:"room"`
-	Status              string         `json:"status"`
-	EffectiveInstructor InstructorRef  `json:"effective_instructor"`
-	Batch               BatchRef       `json:"batch"`
-	Course              CourseRef      `json:"course"`
-	Override            *overrideResp  `json:"override"`
+	ScheduleID          string        `json:"schedule_id"`
+	Date                string        `json:"date"`
+	OriginalDate        *string       `json:"original_date"`
+	DayOfWeek           string        `json:"day_of_week"`
+	StartTime           string        `json:"start_time"`
+	EndTime             string        `json:"end_time"`
+	Room                *string       `json:"room"`
+	Status              string        `json:"status"`
+	EffectiveInstructor InstructorRef `json:"effective_instructor"`
+	Batch               BatchRef      `json:"batch"`
+	Course              CourseRef     `json:"course"`
+	Override            *overrideResp `json:"override"`
 }
 
 type weeklyResp struct {
@@ -175,16 +175,16 @@ func toScheduleResp(s Schedule) scheduleResp {
 
 func toOverrideResp(o ScheduleOverride) overrideResp {
 	r := overrideResp{
-		ID:           o.ID.String(),
-		ScheduleID:   o.ScheduleID.String(),
-		OriginalDate: o.OriginalDate.Format("2006-01-02"),
-		OverrideType: o.OverrideType,
-		NewStartTime: o.NewStartTime,
-		NewEndTime:   o.NewEndTime,
-		NewRoom:      o.NewRoom,
-		Reason:       o.Reason,
-		CreatedBy:    o.CreatedByUserID.String(),
-		CreatedAt:    o.CreatedAt.UTC().Format(time.RFC3339),
+		ID:            o.ID.String(),
+		ScheduleID:    o.ScheduleID.String(),
+		OriginalDate:  o.OriginalDate.Format("2006-01-02"),
+		OverrideType:  o.OverrideType,
+		NewStartTime:  o.NewStartTime,
+		NewEndTime:    o.NewEndTime,
+		NewRoom:       o.NewRoom,
+		Reason:        o.Reason,
+		CreatorUserID: o.CreatorUserID.String(),
+		CreatedAt:     o.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	if o.NewDate != nil {
 		d := o.NewDate.Format("2006-01-02")
@@ -296,15 +296,15 @@ func (h *Handler) createSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	svcReq := CreateScheduleRequest{
-		BatchID:         batchID,
-		DayOfWeek:       req.DayOfWeek,
-		StartTime:       strings.TrimSpace(req.StartTime),
-		EndTime:         strings.TrimSpace(req.EndTime),
-		Room:            req.Room,
-		Recurrence:      req.Recurrence,
-		EffectiveFrom:   from,
-		EffectiveUntil:  until,
-		CreatedByUserID: callerID,
+		BatchID:        batchID,
+		DayOfWeek:      req.DayOfWeek,
+		StartTime:      strings.TrimSpace(req.StartTime),
+		EndTime:        strings.TrimSpace(req.EndTime),
+		Room:           req.Room,
+		Recurrence:     req.Recurrence,
+		EffectiveFrom:  from,
+		EffectiveUntil: until,
+		CreatorUserID:  callerID,
 	}
 	if req.InstructorUserID != nil {
 		id, err := uuid.Parse(*req.InstructorUserID)
@@ -506,15 +506,15 @@ func (h *Handler) createOverride(w http.ResponseWriter, r *http.Request) {
 	}
 
 	svcReq := CreateOverrideRequest{
-		ScheduleID:      schedID,
-		OriginalDate:    origDate,
-		OverrideType:    req.OverrideType,
-		NewDate:         newDate,
-		NewStartTime:    req.NewStartTime,
-		NewEndTime:      req.NewEndTime,
-		NewRoom:         req.NewRoom,
-		Reason:          req.Reason,
-		CreatedByUserID: callerID,
+		ScheduleID:    schedID,
+		OriginalDate:  origDate,
+		OverrideType:  req.OverrideType,
+		NewDate:       newDate,
+		NewStartTime:  req.NewStartTime,
+		NewEndTime:    req.NewEndTime,
+		NewRoom:       req.NewRoom,
+		Reason:        req.Reason,
+		CreatorUserID: callerID,
 	}
 	if req.NewInstructorUserID != nil {
 		id, err := uuid.Parse(*req.NewInstructorUserID)

@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
-	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 )
 
 type Handler struct {
@@ -188,7 +188,7 @@ func (h *Handler) createBatch(w http.ResponseWriter, r *http.Request) {
 	b, err := h.svc.Create(r.Context(), CreateBatchRequest{
 		CourseID:         courseID,
 		InstructorUserID: instructorID,
-		CreatedByUserID:  createdByID,
+		CreatorUserID:    createdByID,
 		BatchName:        req.BatchName,
 		BatchCode:        req.BatchCode,
 		AcademicYear:     req.AcademicYear,

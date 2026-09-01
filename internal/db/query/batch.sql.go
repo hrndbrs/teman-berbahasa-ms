@@ -53,7 +53,7 @@ func (q *Queries) CountBatches(ctx context.Context, arg CountBatchesParams) (int
 
 const createBatch = `-- name: CreateBatch :one
 INSERT INTO batches (
-    id, course_id, instructor_user_id, created_by_user_id,
+    id, course_id, instructor_user_id, creator_user_id,
     batch_name, batch_code, academic_year
 ) VALUES (
     $1,
@@ -64,14 +64,14 @@ INSERT INTO batches (
     $6,
     $7
 )
-RETURNING id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at
+RETURNING id, course_id, instructor_user_id, creator_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at
 `
 
 type CreateBatchParams struct {
 	ID               uuid.UUID `json:"id"`
 	CourseID         uuid.UUID `json:"course_id"`
 	InstructorUserID uuid.UUID `json:"instructor_user_id"`
-	CreatedByUserID  uuid.UUID `json:"created_by_user_id"`
+	CreatorUserID    uuid.UUID `json:"creator_user_id"`
 	BatchName        string    `json:"batch_name"`
 	BatchCode        string    `json:"batch_code"`
 	AcademicYear     *string   `json:"academic_year"`
@@ -82,7 +82,7 @@ func (q *Queries) CreateBatch(ctx context.Context, arg CreateBatchParams) (Batch
 		arg.ID,
 		arg.CourseID,
 		arg.InstructorUserID,
-		arg.CreatedByUserID,
+		arg.CreatorUserID,
 		arg.BatchName,
 		arg.BatchCode,
 		arg.AcademicYear,
@@ -92,7 +92,7 @@ func (q *Queries) CreateBatch(ctx context.Context, arg CreateBatchParams) (Batch
 		&i.ID,
 		&i.CourseID,
 		&i.InstructorUserID,
-		&i.CreatedByUserID,
+		&i.CreatorUserID,
 		&i.BatchName,
 		&i.BatchCode,
 		&i.AcademicYear,
@@ -145,7 +145,7 @@ func (q *Queries) ExistsActiveTeacher(ctx context.Context, id uuid.UUID) (bool, 
 }
 
 const getBatchByID = `-- name: GetBatchByID :one
-SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count, first_class_date, last_class_date FROM batches_with_stats WHERE id = $1
+SELECT id, course_id, instructor_user_id, creator_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count, first_class_date, last_class_date FROM batches_with_stats WHERE id = $1
 `
 
 func (q *Queries) GetBatchByID(ctx context.Context, id uuid.UUID) (BatchesWithStat, error) {
@@ -155,7 +155,7 @@ func (q *Queries) GetBatchByID(ctx context.Context, id uuid.UUID) (BatchesWithSt
 		&i.ID,
 		&i.CourseID,
 		&i.InstructorUserID,
-		&i.CreatedByUserID,
+		&i.CreatorUserID,
 		&i.BatchName,
 		&i.BatchCode,
 		&i.AcademicYear,
@@ -174,7 +174,7 @@ func (q *Queries) GetBatchByID(ctx context.Context, id uuid.UUID) (BatchesWithSt
 }
 
 const listBatches = `-- name: ListBatches :many
-SELECT id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count, first_class_date, last_class_date FROM batches_with_stats
+SELECT id, course_id, instructor_user_id, creator_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at, course_name, course_code, instructor_first_name, instructor_last_name, enrolled_count, first_class_date, last_class_date FROM batches_with_stats
 WHERE
     ($1::text    IS NULL OR status    = $1) AND
     ($2::uuid IS NULL OR course_id = $2) AND
@@ -215,7 +215,7 @@ func (q *Queries) ListBatches(ctx context.Context, arg ListBatchesParams) ([]Bat
 			&i.ID,
 			&i.CourseID,
 			&i.InstructorUserID,
-			&i.CreatedByUserID,
+			&i.CreatorUserID,
 			&i.BatchName,
 			&i.BatchCode,
 			&i.AcademicYear,
@@ -248,7 +248,7 @@ UPDATE batches SET
     academic_year      = COALESCE($4,      academic_year),
     updated_at         = NOW()
 WHERE id = $5
-RETURNING id, course_id, instructor_user_id, created_by_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at
+RETURNING id, course_id, instructor_user_id, creator_user_id, batch_name, batch_code, academic_year, status, created_at, updated_at
 `
 
 type UpdateBatchParams struct {
@@ -272,7 +272,7 @@ func (q *Queries) UpdateBatch(ctx context.Context, arg UpdateBatchParams) (Batch
 		&i.ID,
 		&i.CourseID,
 		&i.InstructorUserID,
-		&i.CreatedByUserID,
+		&i.CreatorUserID,
 		&i.BatchName,
 		&i.BatchCode,
 		&i.AcademicYear,

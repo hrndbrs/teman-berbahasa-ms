@@ -48,7 +48,7 @@ type ScheduleOverride struct {
 	NewRoom             *string
 	NewInstructorUserID *uuid.UUID
 	Reason              *string
-	CreatedByUserID     uuid.UUID
+	CreatorUserID       uuid.UUID
 	CreatedAt           time.Time
 	// resolved names for responses
 	NewInstructorFirstName *string
@@ -128,7 +128,7 @@ type OverrideForWeek struct {
 	NewInstructorFirstName *string
 	NewInstructorLastName  *string
 	Reason                 *string
-	CreatedByUserID        uuid.UUID
+	CreatorUserID          uuid.UUID
 	CreatedAt              time.Time
 }
 
@@ -154,7 +154,7 @@ type CreateScheduleRequest struct {
 	Recurrence       string
 	EffectiveFrom    time.Time
 	EffectiveUntil   *time.Time
-	CreatedByUserID  uuid.UUID
+	CreatorUserID    uuid.UUID
 }
 
 type UpdateScheduleRequest struct {
@@ -189,7 +189,7 @@ type CreateOverrideRequest struct {
 	NewRoom             *string
 	NewInstructorUserID *uuid.UUID
 	Reason              *string
-	CreatedByUserID     uuid.UUID
+	CreatorUserID       uuid.UUID
 }
 
 type UpdateOverrideRequest struct {
@@ -429,7 +429,7 @@ func (s *ScheduleService) CreateOverride(ctx context.Context, req CreateOverride
 		return nil, err
 	}
 
-	if role == "teacher" && batch.InstructorUserID != req.CreatedByUserID {
+	if role == "teacher" && batch.InstructorUserID != req.CreatorUserID {
 		return nil, ErrForbidden
 	}
 

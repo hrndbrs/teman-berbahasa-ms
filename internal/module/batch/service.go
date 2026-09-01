@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	ipagination "github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 )
 
 var (
@@ -39,7 +39,7 @@ type Batch struct {
 	ID               uuid.UUID
 	CourseID         uuid.UUID
 	InstructorUserID uuid.UUID
-	CreatedByUserID  uuid.UUID
+	CreatorUserID    uuid.UUID
 	BatchName        string
 	BatchCode        string
 	AcademicYear     *string
@@ -86,7 +86,7 @@ type ListResponse struct {
 type CreateBatchRequest struct {
 	CourseID         uuid.UUID
 	InstructorUserID uuid.UUID
-	CreatedByUserID  uuid.UUID
+	CreatorUserID    uuid.UUID
 	BatchName        string
 	BatchCode        string
 	AcademicYear     *string

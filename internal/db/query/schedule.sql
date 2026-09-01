@@ -87,13 +87,13 @@ ORDER BY s.day_of_week, s.start_time;
 INSERT INTO schedule_overrides (
     id, schedule_id, original_date, override_type,
     new_date, new_start_time, new_end_time, new_room,
-    new_instructor_user_id, reason, created_by_user_id
+    new_instructor_user_id, reason, creator_user_id
 ) VALUES (
     sqlc.arg('id'), sqlc.arg('schedule_id'), sqlc.arg('original_date'),
     sqlc.arg('override_type'),
     sqlc.narg('new_date'), sqlc.narg('new_start_time'), sqlc.narg('new_end_time'),
     sqlc.narg('new_room'), sqlc.narg('new_instructor_user_id'),
-    sqlc.narg('reason'), sqlc.arg('created_by_user_id')
+    sqlc.narg('reason'), sqlc.arg('creator_user_id')
 )
 ON CONFLICT (schedule_id, original_date) DO UPDATE SET
     new_date               = EXCLUDED.new_date,
@@ -102,14 +102,14 @@ ON CONFLICT (schedule_id, original_date) DO UPDATE SET
     new_room               = EXCLUDED.new_room,
     new_instructor_user_id = EXCLUDED.new_instructor_user_id,
     reason                 = EXCLUDED.reason,
-    created_by_user_id     = EXCLUDED.created_by_user_id
+    creator_user_id     = EXCLUDED.creator_user_id
 RETURNING *;
 
 -- name: GetOverridesByScheduleIDs :many
 SELECT
     o.id, o.schedule_id, o.original_date, o.override_type,
     o.new_date, o.new_start_time, o.new_end_time, o.new_room,
-    o.new_instructor_user_id, o.reason, o.created_by_user_id, o.created_at,
+    o.new_instructor_user_id, o.reason, o.creator_user_id, o.created_at,
     u.first_name AS new_instructor_first_name,
     u.last_name  AS new_instructor_last_name
 FROM schedule_overrides o
@@ -127,7 +127,7 @@ WHERE o.schedule_id = ANY(sqlc.arg('schedule_ids')::uuid[])
 SELECT
     o.id, o.schedule_id, o.original_date, o.override_type,
     o.new_date, o.new_start_time, o.new_end_time, o.new_room,
-    o.new_instructor_user_id, o.reason, o.created_by_user_id, o.created_at,
+    o.new_instructor_user_id, o.reason, o.creator_user_id, o.created_at,
     u.first_name AS new_instructor_first_name,
     u.last_name  AS new_instructor_last_name
 FROM schedule_overrides o

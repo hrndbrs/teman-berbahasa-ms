@@ -135,30 +135,30 @@ func fixedBatch() schedule.BatchForSchedule {
 
 func fixedSchedule() schedule.Schedule {
 	return schedule.Schedule{
-		ID:            schedID,
-		BatchID:       batchID,
-		CourseID:      courseID,
-		DayOfWeek:     "friday",
-		StartTime:     "09:00:00",
-		EndTime:       "11:00:00",
-		Recurrence:    "weekly",
-		EffectiveFrom: mustDate("2026-03-03"),
+		ID:             schedID,
+		BatchID:        batchID,
+		CourseID:       courseID,
+		DayOfWeek:      "friday",
+		StartTime:      "09:00:00",
+		EndTime:        "11:00:00",
+		Recurrence:     "weekly",
+		EffectiveFrom:  mustDate("2026-03-03"),
 		EffectiveUntil: timePtr(mustDate("2026-06-27")),
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 }
 
 func baseCreateReq() schedule.CreateScheduleRequest {
 	return schedule.CreateScheduleRequest{
-		BatchID:         batchID,
-		DayOfWeek:       "friday",
-		StartTime:       "09:00:00",
-		EndTime:         "11:00:00",
-		Recurrence:      "weekly",
-		EffectiveFrom:   mustDate("2026-03-03"),
-		EffectiveUntil:  timePtr(mustDate("2026-06-27")),
-		CreatedByUserID: userID,
+		BatchID:        batchID,
+		DayOfWeek:      "friday",
+		StartTime:      "09:00:00",
+		EndTime:        "11:00:00",
+		Recurrence:     "weekly",
+		EffectiveFrom:  mustDate("2026-03-03"),
+		EffectiveUntil: timePtr(mustDate("2026-06-27")),
+		CreatorUserID:  userID,
 	}
 }
 
@@ -295,11 +295,11 @@ func TestCreateOverride_HappyPath_Reschedule(t *testing.T) {
 	})
 	newDate := mustDate("2026-05-20")
 	req := schedule.CreateOverrideRequest{
-		ScheduleID:      schedID,
-		OriginalDate:    mustDate("2026-05-22"),
-		OverrideType:    "reschedule",
-		NewDate:         &newDate,
-		CreatedByUserID: userID,
+		ScheduleID:    schedID,
+		OriginalDate:  mustDate("2026-05-22"),
+		OverrideType:  "reschedule",
+		NewDate:       &newDate,
+		CreatorUserID: userID,
 	}
 	_, err := svc.CreateOverride(context.Background(), req, "admin")
 	require.NoError(t, err)
@@ -315,11 +315,11 @@ func TestCreateOverride_OriginalDateWrongDay_ReturnsError(t *testing.T) {
 		},
 	})
 	req := schedule.CreateOverrideRequest{
-		ScheduleID:      schedID,
-		OriginalDate:    mustDate("2026-05-21"), // thursday, NOT friday
-		OverrideType:    "reschedule",
-		NewDate:         timePtr(mustDate("2026-05-20")),
-		CreatedByUserID: userID,
+		ScheduleID:    schedID,
+		OriginalDate:  mustDate("2026-05-21"), // thursday, NOT friday
+		OverrideType:  "reschedule",
+		NewDate:       timePtr(mustDate("2026-05-20")),
+		CreatorUserID: userID,
 	}
 	_, err := svc.CreateOverride(context.Background(), req, "admin")
 	assert.ErrorIs(t, err, schedule.ErrOriginalDateOutOfRange)
@@ -335,11 +335,11 @@ func TestCreateOverride_RescheduleMissingNewDate(t *testing.T) {
 		},
 	})
 	req := schedule.CreateOverrideRequest{
-		ScheduleID:      schedID,
-		OriginalDate:    mustDate("2026-05-22"),
-		OverrideType:    "reschedule",
-		NewDate:         nil,
-		CreatedByUserID: userID,
+		ScheduleID:    schedID,
+		OriginalDate:  mustDate("2026-05-22"),
+		OverrideType:  "reschedule",
+		NewDate:       nil,
+		CreatorUserID: userID,
 	}
 	_, err := svc.CreateOverride(context.Background(), req, "admin")
 	assert.ErrorIs(t, err, schedule.ErrRescheduleMissingDate)
@@ -356,11 +356,11 @@ func TestCreateOverride_InstructorChange_WithNewDate_ReturnsError(t *testing.T) 
 	})
 	bad := mustDate("2026-05-20")
 	req := schedule.CreateOverrideRequest{
-		ScheduleID:      schedID,
-		OriginalDate:    mustDate("2026-05-22"),
-		OverrideType:    "instructor_change",
-		NewDate:         &bad,
-		CreatedByUserID: userID,
+		ScheduleID:    schedID,
+		OriginalDate:  mustDate("2026-05-22"),
+		OverrideType:  "instructor_change",
+		NewDate:       &bad,
+		CreatorUserID: userID,
 	}
 	_, err := svc.CreateOverride(context.Background(), req, "admin")
 	assert.ErrorIs(t, err, schedule.ErrInstructorChangeInvalid)
@@ -380,11 +380,11 @@ func TestCreateOverride_TeacherForbidden_WrongBatch(t *testing.T) {
 	})
 	newDate := mustDate("2026-05-20")
 	req := schedule.CreateOverrideRequest{
-		ScheduleID:      schedID,
-		OriginalDate:    mustDate("2026-05-22"),
-		OverrideType:    "reschedule",
-		NewDate:         &newDate,
-		CreatedByUserID: userID,
+		ScheduleID:    schedID,
+		OriginalDate:  mustDate("2026-05-22"),
+		OverrideType:  "reschedule",
+		NewDate:       &newDate,
+		CreatorUserID: userID,
 	}
 	_, err := svc.CreateOverride(context.Background(), req, "teacher")
 	assert.ErrorIs(t, err, schedule.ErrForbidden)
@@ -406,11 +406,11 @@ func TestCreateOverride_TeacherAllowed_OwnBatch(t *testing.T) {
 	})
 	newDate := mustDate("2026-05-20")
 	req := schedule.CreateOverrideRequest{
-		ScheduleID:      schedID,
-		OriginalDate:    mustDate("2026-05-22"),
-		OverrideType:    "reschedule",
-		NewDate:         &newDate,
-		CreatedByUserID: userID,
+		ScheduleID:    schedID,
+		OriginalDate:  mustDate("2026-05-22"),
+		OverrideType:  "reschedule",
+		NewDate:       &newDate,
+		CreatorUserID: userID,
 	}
 	_, err := svc.CreateOverride(context.Background(), req, "teacher")
 	require.NoError(t, err)

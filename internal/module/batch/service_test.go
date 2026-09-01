@@ -89,7 +89,7 @@ func makeBatchWithDetails() batch.BatchWithDetails {
 			ID:               fixedID(),
 			CourseID:         fixedID2(),
 			InstructorUserID: fixedID2(),
-			CreatedByUserID:  fixedID2(),
+			CreatorUserID:    fixedID2(),
 			BatchName:        "N5 Spring Morning",
 			BatchCode:        "SP26-A",
 			Status:           "upcoming",
@@ -199,7 +199,7 @@ func TestCreate_HappyPath(t *testing.T) {
 	got, err := svc.Create(context.Background(), batch.CreateBatchRequest{
 		CourseID:         fixedID2(),
 		InstructorUserID: fixedID2(),
-		CreatedByUserID:  fixedID2(),
+		CreatorUserID:    fixedID2(),
 		BatchName:        "N5 Spring Morning",
 		BatchCode:        "SP26-A",
 	})
@@ -217,7 +217,7 @@ func TestCreate_InvalidInstructor(t *testing.T) {
 	_, err := svc.Create(context.Background(), batch.CreateBatchRequest{
 		CourseID:         fixedID2(),
 		InstructorUserID: fixedID2(),
-		CreatedByUserID:  fixedID2(),
+		CreatorUserID:    fixedID2(),
 		BatchName:        "Test",
 		BatchCode:        "T26-A",
 	})
@@ -236,7 +236,7 @@ func TestCreate_DuplicateBatchCode(t *testing.T) {
 	_, err := svc.Create(context.Background(), batch.CreateBatchRequest{
 		CourseID:         fixedID2(),
 		InstructorUserID: fixedID2(),
-		CreatedByUserID:  fixedID2(),
+		CreatorUserID:    fixedID2(),
 		BatchName:        "Dup",
 		BatchCode:        "DUP",
 	})
@@ -257,7 +257,7 @@ func TestCreate_TrimsWhitespace(t *testing.T) {
 	_, err := svc.Create(context.Background(), batch.CreateBatchRequest{
 		CourseID:         fixedID2(),
 		InstructorUserID: fixedID2(),
-		CreatedByUserID:  fixedID2(),
+		CreatorUserID:    fixedID2(),
 		BatchName:        "  N5 Spring  ",
 		BatchCode:        "  SP26-A  ",
 	})

@@ -53,7 +53,7 @@ func makeWeekSchedule(dayOfWeek string, from, until string) schedule.ScheduleFor
 func strPtr(s string) *string { return &s }
 
 var weekStart = mustDate("2026-05-18")
-var weekEnd   = mustDate("2026-05-24")
+var weekEnd = mustDate("2026-05-24")
 
 func TestExpandWeek_NoSchedules_ReturnsEmpty(t *testing.T) {
 	sessions := schedule.ExpandWeek(nil, nil, weekStart, weekEnd)

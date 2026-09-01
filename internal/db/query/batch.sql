@@ -29,13 +29,13 @@ SELECT * FROM batches_with_stats WHERE id = sqlc.arg('id');
 
 -- name: CreateBatch :one
 INSERT INTO batches (
-    id, course_id, instructor_user_id, created_by_user_id,
+    id, course_id, instructor_user_id, creator_user_id,
     batch_name, batch_code, academic_year
 ) VALUES (
     sqlc.arg('id'),
     sqlc.arg('course_id'),
     sqlc.arg('instructor_user_id'),
-    sqlc.arg('created_by_user_id'),
+    sqlc.arg('creator_user_id'),
     sqlc.arg('batch_name'),
     sqlc.arg('batch_code'),
     sqlc.narg('academic_year')

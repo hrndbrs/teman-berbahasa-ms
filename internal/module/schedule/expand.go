@@ -192,7 +192,7 @@ func toOverrideDomain(o *OverrideForWeek) *ScheduleOverride {
 		NewRoom:             o.NewRoom,
 		NewInstructorUserID: o.NewInstructorID,
 		Reason:              o.Reason,
-		CreatedByUserID:     o.CreatedByUserID,
+		CreatorUserID:       o.CreatorUserID,
 		CreatedAt:           o.CreatedAt,
 	}
 }
