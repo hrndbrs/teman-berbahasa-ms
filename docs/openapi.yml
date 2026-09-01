@@ -383,7 +383,7 @@ paths:
       summary: Create user
       description: |
         Creates a new staff account and sends an invite email with a password-set link.
-        Restricted to `admin` role. `created_by_user_id` is server-set from JWT.
+        Restricted to `admin` role.
       security:
         - bearerAuth: []
       requestBody:
@@ -526,7 +526,7 @@ paths:
       summary: Create student
       description: |
         Registers a new student. Restricted to `admin` and `staff` roles.
-        `registration_date` defaults to today if omitted. `email` is optional.
+        `registration_date` defaults to today if omitted. `email` is required and unique.
       security:
         - bearerAuth: []
       requestBody:
@@ -1804,6 +1804,7 @@ components:
           id,
           first_name,
           last_name,
+          email,
           registration_date,
           status,
           created_at,
@@ -1818,7 +1819,7 @@ components:
         last_name:
           type: string
         email:
-          type: [string, "null"]
+          type: string
           format: email
         phone:
           type: [string, "null"]
@@ -1936,14 +1937,14 @@ components:
 
     CreateStudentRequest:
       type: object
-      required: [first_name, last_name]
+      required: [first_name, last_name, email]
       properties:
         first_name:
           type: string
         last_name:
           type: string
         email:
-          type: [string, "null"]
+          type: string
           format: email
         phone:
           type: [string, "null"]
@@ -1973,9 +1974,9 @@ components:
         last_name:
           type: string
         email:
-          type: [string, "null"]
+          type: string
           format: email
-          description: Send explicit `null` to clear.
+          description: Optional on PATCH; cannot be cleared (NOT NULL). Omit to leave unchanged.
         phone:
           type: [string, "null"]
           description: Send explicit `null` to clear.
@@ -2227,7 +2228,7 @@ components:
 
     EnrollmentStudentRef:
       type: object
-      required: [id, first_name, last_name]
+      required: [id, first_name, last_name, email]
       properties:
         id:
           type: string
@@ -2239,7 +2240,6 @@ components:
         email:
           type: string
           format: email
-          nullable: true
 
     EnrollmentBatchRef:
       type: object
@@ -2474,7 +2474,7 @@ components:
       type: object
       required:
         [id, schedule_id, original_date, override_type,
-         created_by_user_id, created_at]
+         creator_user_id, created_at]
       properties:
         id:
           type: string
@@ -2510,7 +2510,7 @@ components:
         reason:
           type: string
           nullable: true
-        created_by_user_id:
+        creator_user_id:
           type: string
           format: uuid
         created_at:

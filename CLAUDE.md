@@ -80,7 +80,7 @@ No ORM. Raw SQL via sqlc. No Redis — async jobs via in-process goroutine worke
 - Enums: lowercase strings (never integers)
 - `price` returned as string to avoid float precision loss
 - Nested objects in responses — never bare IDs in response bodies
-- `created_by_user_id` always server-set from JWT; never accepted from client
+- `creator_user_id` always server-set from JWT; never accepted from client
 - Passwords never appear in any response; `password_hash` never leaves DB
 - Pagination: `?page=1&per_page=20` (max 100), response includes `pagination` object
 
@@ -116,14 +116,15 @@ Standard codes: `BAD_REQUEST` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), `N
 
 ### Critical Unique Constraints
 
-| Constraint                           | On table             |
-| ------------------------------------ | -------------------- |
-| `email`                              | `users`, `students`  |
-| `(course_id, batch_code)`            | `batches`            |
-| `(student_id, batch_id)`             | `enrollments`        |
-| `(schedule_id, original_date)`       | `schedule_overrides` |
-| `(form_id, respondent_id)` (partial) | `form_responses`     |
-| `course_code`                        | `courses`            |
+| Constraint                                | On table             |
+| ----------------------------------------- | -------------------- |
+| `email` (NOT NULL)                        | `users`, `students`  |
+| `(course_id, batch_code)`                 | `batches`            |
+| `(student_id, batch_id)`                  | `enrollments`        |
+| `(schedule_id, original_date)`            | `schedule_overrides` |
+| `(form_id, respondent_id)`                | `form_responses`     |
+| `email WHERE email IS NOT NULL` (partial) | `respondents`        |
+| `course_code`                             | `courses`            |
 
 Catch `pgerrcode.UniqueViolation` → return 409.
 
@@ -159,8 +160,10 @@ Catch `pgerrcode.UniqueViolation` → return 409.
 
 - Effective instructor resolution (3-level fallback): override → slot → batch default.
 - `original_date` must fall within `schedule.effective_from` / `effective_until`.
-- `cancellation` override: `new_date`, `new_start_time`, `new_end_time` must be nil.
+- `override_type` is `reschedule` or `instructor_change` only (no `cancellation`).
 - `reschedule` override: `new_date` required.
+- `instructor_change` override: `new_instructor_user_id` required; `new_date`/`new_start_time`/`new_end_time`/`new_room` must be nil.
+- `schedule_overrides.schedule_id` FK is `ON DELETE CASCADE` — deleting a schedule drops its overrides.
 
 ### Forms
 
@@ -168,7 +171,7 @@ Catch `pgerrcode.UniqueViolation` → return 409.
 - Questions immutable once form is `published` — return 409 on edit attempt.
 - `POST /forms/:id/publish` and `POST /forms/:id/close` are idempotent — return 200 if already in target state.
 - `allow_anonymous = false` → respondent name + email required on submission.
-- Partial unique index on `(form_id, respondent_id)` prevents duplicate identified submissions.
+- Unique index on `(form_id, respondent_id)` prevents duplicate identified submissions (respondents are upserted by email, so identified re-submits collide; anonymous ones get a fresh respondent row each time).
 
 ### Form Submission
 

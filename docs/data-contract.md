@@ -88,8 +88,8 @@ Enums are always transmitted as lowercase strings. Never send or expect integer 
 
 ### Schedule Override
 
-| Enum           | Values                                                |
-| -------------- | ----------------------------------------------------- |
+| Enum           | Values                               |
+| -------------- | ------------------------------------ |
 | `OverrideType` | `"reschedule"` `"instructor_change"` |
 
 ### Event
@@ -114,7 +114,7 @@ Nested objects reused across multiple responses.
 
 ### `UserSummary`
 
-Lightweight user reference embedded in other objects (e.g. instructor on a batch, created_by on a form).
+Lightweight user reference embedded in other objects (e.g. instructor on a batch, creator on a form).
 
 ```json
 {
@@ -192,19 +192,19 @@ All error responses use this shape regardless of status code.
 
 ### Standard error codes
 
-| HTTP | `code`             | Meaning                                                            |
-| ---- | ------------------ | ------------------------------------------------------------------ |
-| 400  | `BAD_REQUEST`      | Malformed JSON or missing required body                            |
-| 401  | `UNAUTHORIZED`     | Missing or invalid token                                           |
-| 401  | `ACCOUNT_LOCKED`   | Account temporarily locked after too many failed login attempts    |
-| 403  | `FORBIDDEN`        | Valid token but insufficient role                                  |
-| 404  | `NOT_FOUND`        | Resource does not exist                                            |
-| 409  | `CONFLICT`         | Duplicate — unique constraint would be violated                    |
-| 410  | `GONE`             | Resource existed but is permanently unavailable (e.g. closed form) |
-| 413  | `REQUEST_TOO_LARGE`| Request body exceeds 1 MB size limit                               |
-| 422  | `VALIDATION_ERROR` | Business rule or field validation failed; see `fields`             |
-| 429  | `RATE_LIMITED`     | Too many requests; check `Retry-After` header                      |
-| 500  | `INTERNAL_ERROR`   | Unexpected server error                                            |
+| HTTP | `code`              | Meaning                                                            |
+| ---- | ------------------- | ------------------------------------------------------------------ |
+| 400  | `BAD_REQUEST`       | Malformed JSON or missing required body                            |
+| 401  | `UNAUTHORIZED`      | Missing or invalid token                                           |
+| 401  | `ACCOUNT_LOCKED`    | Account temporarily locked after too many failed login attempts    |
+| 403  | `FORBIDDEN`         | Valid token but insufficient role                                  |
+| 404  | `NOT_FOUND`         | Resource does not exist                                            |
+| 409  | `CONFLICT`          | Duplicate — unique constraint would be violated                    |
+| 410  | `GONE`              | Resource existed but is permanently unavailable (e.g. closed form) |
+| 413  | `REQUEST_TOO_LARGE` | Request body exceeds 1 MB size limit                               |
+| 422  | `VALIDATION_ERROR`  | Business rule or field validation failed; see `fields`             |
+| 429  | `RATE_LIMITED`      | Too many requests; check `Retry-After` header                      |
+| 500  | `INTERNAL_ERROR`    | Unexpected server error                                            |
 
 ---
 
@@ -253,11 +253,12 @@ All `GET` list endpoints return this wrapper.
 
 **Relationships:**
 
-- Referenced by `batches.instructor_user_id` and `batches.created_by_user_id`
+- Referenced by `batches.instructor_user_id` and `batches.creator_user_id`
 - Referenced by `schedules.instructor_user_id` and `schedule_overrides.new_instructor_user_id`
-- Referenced by `schedule_overrides.created_by_user_id`
-- Referenced by `forms.created_by`
-- Referenced by `events.created_by`
+- Referenced by `schedule_overrides.creator_user_id`
+- Referenced by `forms.creator_user_id`
+- Referenced by `events.creator_user_id`
+- Referenced by `refresh_tokens.user_id` and `password_reset_tokens.user_id`
 
 ---
 
@@ -372,7 +373,7 @@ Sets `status = inactive`. No body.
 | `id`                | UUID v7      | No       | PK                                                                                                                              |
 | `first_name`        | VARCHAR(100) | No       | —                                                                                                                               |
 | `last_name`         | VARCHAR(100) | No       | —                                                                                                                               |
-| `email`             | VARCHAR(255) | Yes      | Unique when provided. Not required — some students (esp. younger) may not have email.                                           |
+| `email`             | VARCHAR(255) | No       | Login-grade identifier for the student. Globally unique. Required on create; `PATCH` may change it but not clear it.            |
 | `phone`             | VARCHAR(20)  | Yes      | Student's own phone.                                                                                                            |
 | `date_of_birth`     | DATE         | Yes      | Used to derive age; not strictly required for enrollment.                                                                       |
 | `gender`            | ENUM         | Yes      | Optional demographic field.                                                                                                     |
@@ -677,18 +678,18 @@ No request body.
 
 ### DB Table: `batches`
 
-| Column               | Type         | Nullable | Rationale                                                                                                                                      |
-| -------------------- | ------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                 | UUID v7      | No       | PK                                                                                                                                             |
-| `course_id`          | UUID         | No       | FK → courses. A batch belongs to exactly one course. Batch numbering is scoped per course — two courses can each have "B001".                  |
-| `instructor_user_id` | UUID         | No       | FK → users (role = teacher). The default instructor for all sessions in this batch. Individual schedule slots and overrides can override this. |
-| `created_by_user_id` | UUID         | No       | FK → users. Audit trail — who created the batch. Server-set from JWT claims, not from request body.                                            |
-| `batch_name`         | VARCHAR(200) | No       | Human-readable name, e.g. "Matematika Dasar Batch 3".                                                                                          |
-| `batch_code`         | VARCHAR(20)  | No       | Short code unique per course, e.g. "B003". Unique constraint: `(course_id, batch_code)`.                                                       |
-| `academic_year`      | VARCHAR(10)  | Yes      | e.g. "2025/2026". Used for filtering and grouping. Date range is derived from schedules (MIN/MAX of effective dates), not stored on the batch. |
-| `status`             | ENUM         | No       | Explicit state machine: `upcoming → ongoing → completed`. No reversals. Default `upcoming`.                                                    |
-| `created_at`         | TIMESTAMPTZ  | No       | —                                                                                                                                              |
-| `updated_at`         | TIMESTAMPTZ  | No       | —                                                                                                                                              |
+| Column               | Type         | Nullable | Rationale                                                                                                                                                      |
+| -------------------- | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                 | UUID v7      | No       | PK                                                                                                                                                             |
+| `course_id`          | UUID         | No       | FK → courses. A batch belongs to exactly one course. Batch numbering is scoped per course — two courses can each have "B001".                                  |
+| `instructor_user_id` | UUID         | No       | FK → users (role = teacher). The default instructor for all sessions in this batch. Individual schedule slots and overrides can override this.                 |
+| `creator_user_id`    | UUID         | No       | FK → users. Audit trail — who created the batch. Server-set from JWT claims, not from request body.                                                            |
+| `batch_name`         | VARCHAR(200) | No       | Human-readable name, e.g. "Matematika Dasar Batch 3".                                                                                                          |
+| `batch_code`         | VARCHAR(20)  | No       | Short code unique per course, e.g. "B003". Unique constraint: `(course_id, batch_code)`.                                                                       |
+| `academic_year`      | VARCHAR(10)  | Yes      | Single-year label, e.g. `"2026"`. Used for filtering and grouping. Date range is derived from schedules (MIN/MAX of effective dates), not stored on the batch. |
+| `status`             | ENUM         | No       | Explicit state machine: `upcoming → ongoing → completed`. No reversals. Default `upcoming`.                                                                    |
+| `created_at`         | TIMESTAMPTZ  | No       | —                                                                                                                                                              |
+| `updated_at`         | TIMESTAMPTZ  | No       | —                                                                                                                                                              |
 
 **Relationships:**
 
@@ -712,7 +713,7 @@ No request body.
       "id": "019687a2-0003-7000-8000-000000000001",
       "batch_name": "Matematika Dasar Batch 3",
       "batch_code": "B003",
-      "academic_year": "2025/2026",
+      "academic_year": "2026",
       "status": "ongoing",
       "course": {
         "id": "019687a2-0002-7000-8000-000000000001",
@@ -752,11 +753,11 @@ No request body.
   "instructor_user_id": "019687a2-0001-7000-8000-000000000001",
   "batch_name": "Matematika Dasar Batch 3",
   "batch_code": "B003",
-  "academic_year": "2025/2026"
+  "academic_year": "2026"
 }
 ```
 
-> `created_by_user_id` is set server-side from the JWT — do not send in body.
+> `creator_user_id` is set server-side from the JWT — do not send in body.
 
 **Response `201`:** Full batch object (same shape as list item).
 
@@ -776,7 +777,7 @@ No request body.
 {
   "instructor_user_id": "019687a2-0001-7000-8000-000000000002",
   "batch_name": "Matematika Dasar Batch 3 (Sore)",
-  "academic_year": "2025/2026"
+  "academic_year": "2026"
 }
 ```
 
@@ -1063,20 +1064,20 @@ No request body.
 
 ### DB Table: `schedule_overrides`
 
-| Column                   | Type         | Nullable | Rationale                                                                                                                                                              |
-| ------------------------ | ------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                     | UUID v7      | No       | PK                                                                                                                                                                     |
-| `schedule_id`            | UUID         | No       | FK → schedules. Which recurring slot is being overridden.                                                                                                              |
-| `original_date`          | DATE         | No       | The specific calendar date of the session being affected. Combined with `schedule_id`, must be unique — only one override per session per slot.                        |
-| `override_type`          | ENUM         | No       | Determines which other fields are meaningful: `reschedule` changes time/date/room; `instructor_change` replaces only the instructor. |
-| `new_date`               | DATE         | Yes      | Required when `override_type = reschedule`. The rescheduled date.                                                                                                      |
-| `new_start_time`         | TIME         | Yes      | New start time. Only set for `reschedule`.                                                                                                                             |
-| `new_end_time`           | TIME         | Yes      | New end time. Only set for `reschedule`.                                                                                                                               |
-| `new_room`               | VARCHAR(100) | Yes      | New room. Can be set for `reschedule` or standalone room change.                                                                                                       |
-| `new_instructor_user_id` | UUID         | Yes      | FK → users. Required for `instructor_change`. Optional for `reschedule`.                                                                                               |
-| `reason`                 | TEXT         | Yes      | Free-text explanation. Shown in override list for auditing.                                                                                                            |
-| `created_by_user_id`     | UUID         | No       | FK → users. Server-set from JWT — who logged this override.                                                                                                            |
-| `created_at`             | TIMESTAMPTZ  | No       | —                                                                                                                                                                      |
+| Column                   | Type         | Nullable | Rationale                                                                                                                                       |
+| ------------------------ | ------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                     | UUID v7      | No       | PK                                                                                                                                              |
+| `schedule_id`            | UUID         | No       | FK → schedules. Which recurring slot is being overridden.                                                                                       |
+| `original_date`          | DATE         | No       | The specific calendar date of the session being affected. Combined with `schedule_id`, must be unique — only one override per session per slot. |
+| `override_type`          | ENUM         | No       | Determines which other fields are meaningful: `reschedule` changes time/date/room; `instructor_change` replaces only the instructor.            |
+| `new_date`               | DATE         | Yes      | Required when `override_type = reschedule`. The rescheduled date.                                                                               |
+| `new_start_time`         | TIME         | Yes      | New start time. Only set for `reschedule`.                                                                                                      |
+| `new_end_time`           | TIME         | Yes      | New end time. Only set for `reschedule`.                                                                                                        |
+| `new_room`               | VARCHAR(100) | Yes      | New room. Only set for `reschedule`.                                                                                                            |
+| `new_instructor_user_id` | UUID         | Yes      | FK → users. Required for `instructor_change`. Optional for `reschedule`.                                                                        |
+| `reason`                 | TEXT         | Yes      | Free-text explanation. Shown in override list for auditing.                                                                                     |
+| `creator_user_id`        | UUID         | No       | FK → users. Server-set from JWT — who logged this override.                                                                                     |
+| `created_at`             | TIMESTAMPTZ  | No       | —                                                                                                                                               |
 
 **Unique constraint:** `(schedule_id, original_date)`
 
@@ -1102,7 +1103,7 @@ No request body.
     "last_name": "Indah"
   },
   "reason": "Budi sedang sakit",
-  "created_by_user_id": "019687a2-0001-7000-8000-000000000099",
+  "creator_user_id": "019687a2-0001-7000-8000-000000000099",
   "created_at": "2025-03-09T05:00:00Z"
 }
 ```
@@ -1144,19 +1145,19 @@ No request body.
 
 ### DB Table: `events`
 
-| Column               | Type         | Nullable | Rationale                                                                                                                 |
-| -------------------- | ------------ | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `id`                 | UUID v7      | No       | PK                                                                                                                        |
-| `title`              | VARCHAR(200) | No       | —                                                                                                                         |
-| `description`        | TEXT         | Yes      | Extended detail, shown in event detail view.                                                                              |
-| `event_type`         | ENUM         | No       | Drives UI color-coding and filtering.                                                                                     |
-| `start_datetime`     | TIMESTAMPTZ  | No       | UTC. Displayed in WIB on frontend.                                                                                        |
-| `end_datetime`       | TIMESTAMPTZ  | No       | UTC. Must be after `start_datetime`.                                                                                      |
-| `location`           | VARCHAR(200) | Yes      | Physical address or virtual meeting link.                                                                                 |
-| `audience`           | ENUM         | No       | Who the event targets. `specific_batch` is a flag — actual batch linking via future `event_batches` join table if needed. |
-| `created_by_user_id` | UUID         | No       | FK → users. Server-set from JWT.                                                                                          |
-| `created_at`         | TIMESTAMPTZ  | No       | —                                                                                                                         |
-| `updated_at`         | TIMESTAMPTZ  | No       | —                                                                                                                         |
+| Column            | Type         | Nullable | Rationale                                                                                                                  |
+| ----------------- | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | UUID v7      | No       | PK                                                                                                                         |
+| `title`           | VARCHAR(200) | No       | —                                                                                                                          |
+| `description`     | TEXT         | Yes      | Extended detail, shown in event detail view.                                                                               |
+| `event_type`      | ENUM         | No       | Drives UI color-coding and filtering.                                                                                      |
+| `start_datetime`  | TIMESTAMPTZ  | No       | UTC. Displayed in WIB on frontend.                                                                                         |
+| `end_datetime`    | TIMESTAMPTZ  | No       | UTC. Must be after `start_datetime`.                                                                                       |
+| `location`        | VARCHAR(200) | Yes      | Physical address or virtual meeting link.                                                                                  |
+| `audience`        | ENUM         | No       | Who the event targets. `specific_batch` is a flag — actual batch linking via future `event_audience` join table if needed. |
+| `creator_user_id` | UUID         | No       | FK → users. Server-set from JWT.                                                                                           |
+| `created_at`      | TIMESTAMPTZ  | No       | —                                                                                                                          |
+| `updated_at`      | TIMESTAMPTZ  | No       | —                                                                                                                          |
 
 ---
 
@@ -1178,7 +1179,7 @@ No request body.
       "end_datetime": "2025-03-20T04:00:00Z",
       "location": "Ruang Utama",
       "audience": "students",
-      "created_by": {
+      "creator": {
         "id": "019687a2-0001-7000-8000-000000000099",
         "first_name": "Admin",
         "last_name": "Utama",
@@ -1239,19 +1240,19 @@ No request body.
 
 ### DB Table: `forms`
 
-| Column               | Type         | Nullable | Rationale                                                                                                                                    |
-| -------------------- | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                 | UUID v7      | No       | PK                                                                                                                                           |
-| `title`              | VARCHAR(200) | No       | —                                                                                                                                            |
-| `description`        | TEXT         | Yes      | Shown at the top of the public form page.                                                                                                    |
-| `status`             | ENUM         | No       | Lifecycle state: `draft → published → closed → deleted`. Default `draft`.                                                                    |
-| `allow_anonymous`    | BOOLEAN      | No       | If `false`, respondent must provide name + email (and system links to student if matched). If `true`, no identity required. Default `false`. |
-| `created_by_user_id` | UUID         | No       | FK → users. Server-set from JWT.                                                                                                             |
-| `created_at`         | TIMESTAMPTZ  | No       | —                                                                                                                                            |
-| `updated_at`         | TIMESTAMPTZ  | No       | —                                                                                                                                            |
-| `published_at`       | TIMESTAMPTZ  | Yes      | Set when status transitions to `published`. Used to show publish date in UI.                                                                 |
-| `closed_at`          | TIMESTAMPTZ  | Yes      | Set when status transitions to `closed`.                                                                                                     |
-| `deleted_at`         | TIMESTAMPTZ  | Yes      | Soft delete. Rows with `deleted_at IS NOT NULL` excluded from all listings.                                                                  |
+| Column            | Type         | Nullable | Rationale                                                                                                                                    |
+| ----------------- | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | UUID v7      | No       | PK                                                                                                                                           |
+| `title`           | VARCHAR(200) | No       | —                                                                                                                                            |
+| `description`     | TEXT         | Yes      | Shown at the top of the public form page.                                                                                                    |
+| `status`          | ENUM         | No       | Lifecycle state: `draft → published → closed → deleted`. Default `draft`.                                                                    |
+| `allow_anonymous` | BOOLEAN      | No       | If `false`, respondent must provide name + email (and system links to student if matched). If `true`, no identity required. Default `false`. |
+| `creator_user_id` | UUID         | No       | FK → users. Server-set from JWT.                                                                                                             |
+| `created_at`      | TIMESTAMPTZ  | No       | —                                                                                                                                            |
+| `updated_at`      | TIMESTAMPTZ  | No       | —                                                                                                                                            |
+| `published_at`    | TIMESTAMPTZ  | Yes      | Set when status transitions to `published`. Used to show publish date in UI.                                                                 |
+| `closed_at`       | TIMESTAMPTZ  | Yes      | Set when status transitions to `closed`.                                                                                                     |
+| `deleted_at`      | TIMESTAMPTZ  | Yes      | Soft delete. Rows with `deleted_at IS NOT NULL` excluded from all listings.                                                                  |
 
 **Relationships:**
 
@@ -1277,7 +1278,7 @@ No request body.
       "allow_anonymous": false,
       "question_count": 5,
       "response_count": 23,
-      "created_by": {
+      "creator": {
         "id": "019687a2-0001-7000-8000-000000000099",
         "first_name": "Admin",
         "last_name": "Utama",
@@ -1317,7 +1318,7 @@ No request body.
   "public_url": "https://app.tutorplace.id/f/019687a2-0009-7000-8000-000000000001",
   "question_count": 5,
   "response_count": 23,
-  "created_by": {
+  "creator": {
     "id": "019687a2-0001-7000-8000-000000000099",
     "first_name": "Admin",
     "last_name": "Utama",
@@ -1551,6 +1552,8 @@ Hard delete. Only allowed on draft forms.
 | `email`      | VARCHAR(255) | Yes      | Required when `allow_anonymous = false`. Used as upsert key — same email across multiple forms reuses the respondent row. |
 | `created_at` | TIMESTAMPTZ  | No       | —                                                                                                                         |
 
+**Partial unique index:** `UNIQUE (email) WHERE email IS NOT NULL` — enforces the email upsert key while letting anonymous respondents (email `NULL`) pile up freely.
+
 **`form_responses`**
 
 | Column          | Type        | Nullable | Rationale                      |
@@ -1560,7 +1563,7 @@ Hard delete. Only allowed on draft forms.
 | `respondent_id` | UUID        | No       | FK → respondents               |
 | `submitted_at`  | TIMESTAMPTZ | No       | Server-set at submission time. |
 
-**Partial unique index:** `(form_id, respondent_id) WHERE form.allow_anonymous = false` — prevents duplicate submissions from identified respondents.
+**Unique index:** `(form_id, respondent_id)`. Identified respondents are upserted by email, so this blocks a second submission to the same form. Anonymous submissions each create a fresh respondent row, so the pair never collides for them.
 
 **`form_answers`**
 
@@ -1868,7 +1871,7 @@ Quick reference for fields that appear across multiple entities.
 | `created_at`                    | UTC datetime set by server at INSERT — never client-provided             |
 | `updated_at`                    | UTC datetime updated by server at every UPDATE                           |
 | `status`                        | Lifecycle state — always a string enum, never an integer                 |
-| `created_by`                    | Nested `UserSummary` of who created the record — server-derived from JWT |
+| `creator`                       | Nested `UserSummary` of who created the record — server-derived from JWT |
 | `*_user_id` fields in requests  | UUID string referencing a user                                           |
 | `*` nested objects in responses | Always expanded — never return bare IDs in response bodies               |
 | `deleted_at`                    | Soft delete timestamp; `null` means not deleted                          |

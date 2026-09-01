@@ -46,7 +46,7 @@ Dispatches 5 parallel specialized reviewer agents, each locked to one quality di
 - Error envelope: all errors use `{"error":{"code":"...","message":"...","fields":{...}}}`
 - PATCH endpoints truly partial (no server-required fields from client)
 - Responses nest objects (never return bare foreign-key IDs)
-- `created_by_user_id` always server-set from JWT claims
+- `creator_user_id` always server-set from JWT claims
 - `RETURNING` clauses on all INSERT/UPDATE (no extra SELECT after write)
 - Context propagated through all layers (no `context.Background()` inside request path)
 - Worker `Dispatch` non-blocking; goroutines handle `ctx.Done()`
