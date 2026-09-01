@@ -1,0 +1,3 @@
+[submodule "docs/paid-content"]
+	path = docs/paid-content
+	url = https://github.com/hrndbrs/teman-berbahasa-docs.git
