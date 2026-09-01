@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/module/student"
 )
 
@@ -75,29 +74,35 @@ func newSvc(repo student.StudentRepository) *student.StudentService {
 
 // ── CreateStudent ─────────────────────────────────────────────────────────────
 
-func TestCreateStudent_NilEmail_Success(t *testing.T) {
+func TestCreateStudent_TrimsEmail_Success(t *testing.T) {
 	id, _ := uuid.NewV7()
+	var seen string
 	svc := newSvc(&mockRepo{
+		getByEmailFn: func(_ context.Context, email string) (student.Student, error) {
+			seen = email
+			return student.Student{}, pgx.ErrNoRows
+		},
 		createFn: func(_ context.Context, _ uuid.UUID, req student.CreateStudentRequest) (student.Student, error) {
-			return student.Student{ID: id, FirstName: req.FirstName, Status: "active"}, nil
+			return student.Student{ID: id, FirstName: req.FirstName, Email: req.Email, Status: "active"}, nil
 		},
 	})
 	s, err := svc.CreateStudent(context.Background(), student.CreateStudentRequest{
-		FirstName: "Rina", LastName: "Kusuma",
+		FirstName: "Rina", LastName: "Kusuma", Email: "  rina@school.com  ",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, id, s.ID)
+	assert.Equal(t, "rina@school.com", seen)
+	assert.Equal(t, "rina@school.com", s.Email)
 }
 
 func TestCreateStudent_EmailTaken_Conflict(t *testing.T) {
-	email := "taken@school.com"
 	svc := newSvc(&mockRepo{
 		getByEmailFn: func(_ context.Context, _ string) (student.Student, error) {
 			return student.Student{ID: uuid.New()}, nil
 		},
 	})
 	_, err := svc.CreateStudent(context.Background(), student.CreateStudentRequest{
-		FirstName: "Rina", LastName: "Kusuma", Email: &email,
+		FirstName: "Rina", LastName: "Kusuma", Email: "taken@school.com",
 	})
 	assert.ErrorIs(t, err, student.ErrEmailConflict)
 }
@@ -114,11 +119,10 @@ func TestCreateStudent_EmailAvailable_Success(t *testing.T) {
 		},
 	})
 	s, err := svc.CreateStudent(context.Background(), student.CreateStudentRequest{
-		FirstName: "Rina", LastName: "Kusuma", Email: &email,
+		FirstName: "Rina", LastName: "Kusuma", Email: email,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, s.Email)
-	assert.Equal(t, email, *s.Email)
+	assert.Equal(t, email, s.Email)
 }
 
 // ── GetStudent ────────────────────────────────────────────────────────────────
@@ -223,14 +227,13 @@ func TestUpdateStudent_EmailConflict(t *testing.T) {
 	taken := "taken@school.com"
 	svc := newSvc(&mockRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (student.Student, error) {
-			return student.Student{ID: id, Email: &original, Status: "active"}, nil
+			return student.Student{ID: id, Email: original, Status: "active"}, nil
 		},
 		getByEmailFn: func(_ context.Context, _ string) (student.Student, error) {
 			return student.Student{ID: uuid.New()}, nil
 		},
 	})
-	takenPatch := &patch.Patchable[string]{Sent: true, Value: &taken}
-	_, err := svc.UpdateStudent(context.Background(), id.String(), student.UpdateStudentRequest{Email: takenPatch})
+	_, err := svc.UpdateStudent(context.Background(), id.String(), student.UpdateStudentRequest{Email: &taken})
 	assert.ErrorIs(t, err, student.ErrEmailConflict)
 }
 

@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 )
 
 func isUniqueViolation(err error) bool {
@@ -28,7 +28,7 @@ type Student struct {
 	ID               uuid.UUID
 	FirstName        string
 	LastName         string
-	Email            *string
+	Email            string
 	Phone            *string
 	DateOfBirth      *time.Time
 	Gender           *string
@@ -96,7 +96,7 @@ type PaginationMeta struct {
 type CreateStudentRequest struct {
 	FirstName        string
 	LastName         string
-	Email            *string
+	Email            string
 	Phone            *string
 	DateOfBirth      *time.Time
 	Gender           *string
@@ -111,7 +111,7 @@ type UpdateStudentRequest struct {
 	LastName  *string
 	Status    *string
 
-	Email       *patch.Patchable[string]
+	Email       *string
 	Phone       *patch.Patchable[string]
 	DateOfBirth *patch.Patchable[time.Time]
 	Gender      *patch.Patchable[string]
@@ -139,14 +139,11 @@ func NewService(repo StudentRepository) *StudentService {
 }
 
 func (s *StudentService) CreateStudent(ctx context.Context, req CreateStudentRequest) (*Student, error) {
-	if req.Email != nil {
-		_, err := s.repo.GetByEmail(ctx, *req.Email)
-		if err == nil {
-			return nil, ErrEmailConflict
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return nil, err
-		}
+	req.Email = strings.TrimSpace(req.Email)
+	if _, err := s.repo.GetByEmail(ctx, req.Email); err == nil {
+		return nil, ErrEmailConflict
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
 	}
 	req.FirstName = strings.TrimSpace(req.FirstName)
 	req.LastName = strings.TrimSpace(req.LastName)
@@ -244,7 +241,9 @@ func MergeStudentUpdate(existing Student, req UpdateStudentRequest) FullStudentU
 	if req.Status != nil {
 		u.Status = *req.Status
 	}
-	u.Email = req.Email.ValueOr(u.Email)
+	if req.Email != nil {
+		u.Email = strings.TrimSpace(*req.Email)
+	}
 	u.Phone = req.Phone.ValueOr(u.Phone)
 	u.DateOfBirth = req.DateOfBirth.ValueOr(u.DateOfBirth)
 	u.Gender = req.Gender.ValueOr(u.Gender)
@@ -255,16 +254,16 @@ func MergeStudentUpdate(existing Student, req UpdateStudentRequest) FullStudentU
 }
 
 type FullStudentUpdate struct {
-	FirstName        string
-	LastName         string
-	Email            *string
-	Phone            *string
-	DateOfBirth      *time.Time
-	Gender           *string
-	Address          *string
-	ParentName       *string
-	ParentPhone      *string
-	Status           string
+	FirstName   string
+	LastName    string
+	Email       string
+	Phone       *string
+	DateOfBirth *time.Time
+	Gender      *string
+	Address     *string
+	ParentName  *string
+	ParentPhone *string
+	Status      string
 }
 
 func (s *StudentService) UpdateStudent(ctx context.Context, id string, req UpdateStudentRequest) (*Student, error) {
@@ -279,13 +278,10 @@ func (s *StudentService) UpdateStudent(ctx context.Context, id string, req Updat
 	if err != nil {
 		return nil, err
 	}
-	if req.Email.Set() && !req.Email.IsNull && req.Email.Value != nil {
-		existingEmail := ""
-		if existing.Email != nil {
-			existingEmail = *existing.Email
-		}
-		if *req.Email.Value != existingEmail {
-			_, err := s.repo.GetByEmail(ctx, *req.Email.Value)
+	if req.Email != nil {
+		newEmail := strings.TrimSpace(*req.Email)
+		if newEmail != existing.Email {
+			_, err := s.repo.GetByEmail(ctx, newEmail)
 			if err == nil {
 				return nil, ErrEmailConflict
 			}

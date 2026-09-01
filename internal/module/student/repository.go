@@ -62,7 +62,7 @@ func (r *pgStudentRepository) GetByID(ctx context.Context, id uuid.UUID) (Studen
 }
 
 func (r *pgStudentRepository) GetByEmail(ctx context.Context, email string) (Student, error) {
-	row, err := r.q.GetStudentByEmail(ctx, &email)
+	row, err := r.q.GetStudentByEmail(ctx, email)
 	if err != nil {
 		return Student{}, err
 	}

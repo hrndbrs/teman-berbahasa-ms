@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	ipagination "github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 )
 
 var (
@@ -76,7 +76,7 @@ type StudentRef struct {
 	ID        uuid.UUID
 	FirstName string
 	LastName  string
-	Email     *string
+	Email     string
 }
 
 type BatchRef struct {

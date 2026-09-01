@@ -13,7 +13,7 @@ type Batch struct {
 	ID               uuid.UUID          `json:"id"`
 	CourseID         uuid.UUID          `json:"course_id"`
 	InstructorUserID uuid.UUID          `json:"instructor_user_id"`
-	CreatedByUserID  uuid.UUID          `json:"created_by_user_id"`
+	CreatorUserID    uuid.UUID          `json:"creator_user_id"`
 	BatchName        string             `json:"batch_name"`
 	BatchCode        string             `json:"batch_code"`
 	AcademicYear     *string            `json:"academic_year"`
@@ -26,7 +26,7 @@ type BatchesWithStat struct {
 	ID                  uuid.UUID          `json:"id"`
 	CourseID            uuid.UUID          `json:"course_id"`
 	InstructorUserID    uuid.UUID          `json:"instructor_user_id"`
-	CreatedByUserID     uuid.UUID          `json:"created_by_user_id"`
+	CreatorUserID       uuid.UUID          `json:"creator_user_id"`
 	BatchName           string             `json:"batch_name"`
 	BatchCode           string             `json:"batch_code"`
 	AcademicYear        *string            `json:"academic_year"`
@@ -89,31 +89,31 @@ type Enrollment struct {
 }
 
 type Event struct {
-	ID              uuid.UUID          `json:"id"`
-	Title           string             `json:"title"`
-	Description     *string            `json:"description"`
-	EventType       string             `json:"event_type"`
-	StartDatetime   pgtype.Timestamptz `json:"start_datetime"`
-	EndDatetime     pgtype.Timestamptz `json:"end_datetime"`
-	Location        *string            `json:"location"`
-	Audience        string             `json:"audience"`
-	CreatedByUserID uuid.UUID          `json:"created_by_user_id"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID            uuid.UUID          `json:"id"`
+	Title         string             `json:"title"`
+	Description   *string            `json:"description"`
+	EventType     string             `json:"event_type"`
+	StartDatetime pgtype.Timestamptz `json:"start_datetime"`
+	EndDatetime   pgtype.Timestamptz `json:"end_datetime"`
+	Location      *string            `json:"location"`
+	Audience      string             `json:"audience"`
+	CreatorUserID uuid.UUID          `json:"creator_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Form struct {
-	ID              uuid.UUID          `json:"id"`
-	Title           string             `json:"title"`
-	Description     *string            `json:"description"`
-	Status          string             `json:"status"`
-	AllowAnonymous  bool               `json:"allow_anonymous"`
-	CreatedByUserID uuid.UUID          `json:"created_by_user_id"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	PublishedAt     pgtype.Timestamptz `json:"published_at"`
-	ClosedAt        pgtype.Timestamptz `json:"closed_at"`
-	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	ID             uuid.UUID          `json:"id"`
+	Title          string             `json:"title"`
+	Description    *string            `json:"description"`
+	Status         string             `json:"status"`
+	AllowAnonymous bool               `json:"allow_anonymous"`
+	CreatorUserID  uuid.UUID          `json:"creator_user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	PublishedAt    pgtype.Timestamptz `json:"published_at"`
+	ClosedAt       pgtype.Timestamptz `json:"closed_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type FormAnswer struct {
@@ -192,7 +192,7 @@ type ScheduleOverride struct {
 	NewRoom             *string            `json:"new_room"`
 	NewInstructorUserID pgtype.UUID        `json:"new_instructor_user_id"`
 	Reason              *string            `json:"reason"`
-	CreatedByUserID     uuid.UUID          `json:"created_by_user_id"`
+	CreatorUserID       uuid.UUID          `json:"creator_user_id"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -200,7 +200,7 @@ type Student struct {
 	ID               uuid.UUID          `json:"id"`
 	FirstName        string             `json:"first_name"`
 	LastName         string             `json:"last_name"`
-	Email            *string            `json:"email"`
+	Email            string             `json:"email"`
 	Phone            *string            `json:"phone"`
 	DateOfBirth      pgtype.Date        `json:"date_of_birth"`
 	Gender           *string            `json:"gender"`

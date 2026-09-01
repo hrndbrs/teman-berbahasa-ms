@@ -61,7 +61,7 @@ type CreateStudentParams struct {
 	ID               uuid.UUID   `json:"id"`
 	FirstName        string      `json:"first_name"`
 	LastName         string      `json:"last_name"`
-	Email            *string     `json:"email"`
+	Email            string      `json:"email"`
 	Phone            *string     `json:"phone"`
 	DateOfBirth      pgtype.Date `json:"date_of_birth"`
 	Gender           *string     `json:"gender"`
@@ -146,7 +146,7 @@ FROM students
 WHERE email = $1
 `
 
-func (q *Queries) GetStudentByEmail(ctx context.Context, email *string) (Student, error) {
+func (q *Queries) GetStudentByEmail(ctx context.Context, email string) (Student, error) {
 	row := q.db.QueryRow(ctx, getStudentByEmail, email)
 	var i Student
 	err := row.Scan(
@@ -408,7 +408,7 @@ RETURNING id, first_name, last_name, email, phone, date_of_birth, gender,
 type UpdateStudentFullParams struct {
 	FirstName   string      `json:"first_name"`
 	LastName    string      `json:"last_name"`
-	Email       *string     `json:"email"`
+	Email       string      `json:"email"`
 	Phone       *string     `json:"phone"`
 	DateOfBirth pgtype.Date `json:"date_of_birth"`
 	Gender      *string     `json:"gender"`

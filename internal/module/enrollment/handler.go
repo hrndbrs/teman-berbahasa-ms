@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
-	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 )
 
 type Handler struct {
@@ -52,10 +52,10 @@ type updateEnrollmentReq struct {
 // ── response types ────────────────────────────────────────────────────────────
 
 type studentRef struct {
-	ID        string  `json:"id"`
-	FirstName string  `json:"first_name"`
-	LastName  string  `json:"last_name"`
-	Email     *string `json:"email"`
+	ID        string `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
 }
 
 type batchRef struct {

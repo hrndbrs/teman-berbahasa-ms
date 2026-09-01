@@ -139,7 +139,7 @@ type GetEnrollmentByIDRow struct {
 	StudentID        uuid.UUID          `json:"student_id"`
 	StudentFirstName string             `json:"student_first_name"`
 	StudentLastName  string             `json:"student_last_name"`
-	StudentEmail     *string            `json:"student_email"`
+	StudentEmail     string             `json:"student_email"`
 	BatchID          uuid.UUID          `json:"batch_id"`
 	BatchName        string             `json:"batch_name"`
 	BatchCode        string             `json:"batch_code"`
@@ -222,7 +222,7 @@ type ListEnrollmentsRow struct {
 	StudentID        uuid.UUID          `json:"student_id"`
 	StudentFirstName string             `json:"student_first_name"`
 	StudentLastName  string             `json:"student_last_name"`
-	StudentEmail     *string            `json:"student_email"`
+	StudentEmail     string             `json:"student_email"`
 	BatchID          uuid.UUID          `json:"batch_id"`
 	BatchName        string             `json:"batch_name"`
 	BatchCode        string             `json:"batch_code"`

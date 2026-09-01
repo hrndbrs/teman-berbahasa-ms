@@ -12,8 +12,8 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/middleware"
-	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 	"github.com/hrndbrs/teman-berbahasa-ms/internal/pagination"
+	"github.com/hrndbrs/teman-berbahasa-ms/internal/patch"
 )
 
 type Handler struct {
@@ -40,7 +40,7 @@ func (h *Handler) Register(r chi.Router) {
 type createStudentReq struct {
 	FirstName        string  `json:"first_name"         validate:"required"`
 	LastName         string  `json:"last_name"          validate:"required"`
-	Email            *string `json:"email"              validate:"omitempty,email"`
+	Email            string  `json:"email"              validate:"required,email"`
 	Phone            *string `json:"phone"`
 	DateOfBirth      *string `json:"date_of_birth"      validate:"omitempty,datetime=2006-01-02"`
 	Gender           *string `json:"gender"             validate:"omitempty,oneof=male female other"`
@@ -51,29 +51,29 @@ type createStudentReq struct {
 }
 
 type rawUpdateStudentReq struct {
-	FirstName    *string                 `json:"first_name"`
-	LastName     *string                 `json:"last_name"`
-	Email        *patch.Patchable[string] `json:"email"`
-	Phone        *patch.Patchable[string] `json:"phone"`
-	DateOfBirth  *patch.Patchable[string] `json:"date_of_birth"`
-	Gender       *patch.Patchable[string] `json:"gender"`
-	Address      *patch.Patchable[string] `json:"address"`
-	ParentName   *patch.Patchable[string] `json:"parent_name"`
-	ParentPhone  *patch.Patchable[string] `json:"parent_phone"`
-	Status       *string                  `json:"status"`
+	FirstName   *string                  `json:"first_name"`
+	LastName    *string                  `json:"last_name"`
+	Email       *string                  `json:"email"           validate:"omitempty,email"`
+	Phone       *patch.Patchable[string] `json:"phone"`
+	DateOfBirth *patch.Patchable[string] `json:"date_of_birth"`
+	Gender      *patch.Patchable[string] `json:"gender"`
+	Address     *patch.Patchable[string] `json:"address"`
+	ParentName  *patch.Patchable[string] `json:"parent_name"`
+	ParentPhone *patch.Patchable[string] `json:"parent_phone"`
+	Status      *string                  `json:"status"`
 }
 
 type updateStudentReq struct {
-	FirstName    *string `json:"first_name"`
-	LastName     *string `json:"last_name"`
-	Email        *string `json:"email"         validate:"omitempty,email"`
-	Phone        *string `json:"phone"`
-	DateOfBirth  *string `json:"date_of_birth" validate:"omitempty,datetime=2006-01-02"`
-	Gender       *string `json:"gender"        validate:"omitempty,oneof=male female other"`
-	Address      *string `json:"address"`
-	ParentName   *string `json:"parent_name"`
-	ParentPhone  *string `json:"parent_phone"`
-	Status       *string `json:"status"        validate:"omitempty,oneof=active inactive graduated"`
+	FirstName   *string `json:"first_name"`
+	LastName    *string `json:"last_name"`
+	Email       *string `json:"email"         validate:"omitempty,email"`
+	Phone       *string `json:"phone"`
+	DateOfBirth *string `json:"date_of_birth" validate:"omitempty,datetime=2006-01-02"`
+	Gender      *string `json:"gender"        validate:"omitempty,oneof=male female other"`
+	Address     *string `json:"address"`
+	ParentName  *string `json:"parent_name"`
+	ParentPhone *string `json:"parent_phone"`
+	Status      *string `json:"status"        validate:"omitempty,oneof=active inactive graduated"`
 }
 
 // ── response types ────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ type studentResp struct {
 	ID               string  `json:"id"`
 	FirstName        string  `json:"first_name"`
 	LastName         string  `json:"last_name"`
-	Email            *string `json:"email"`
+	Email            string  `json:"email"`
 	Phone            *string `json:"phone"`
 	DateOfBirth      *string `json:"date_of_birth"`
 	Gender           *string `json:"gender"`
@@ -253,7 +253,7 @@ func (h *Handler) createStudent(w http.ResponseWriter, r *http.Request) {
 	s, err := h.svc.CreateStudent(r.Context(), CreateStudentRequest{
 		FirstName:        req.FirstName,
 		LastName:         req.LastName,
-		Email:            trimPtr(req.Email),
+		Email:            req.Email,
 		Phone:            req.Phone,
 		DateOfBirth:      dob,
 		Gender:           req.Gender,
@@ -366,14 +366,6 @@ func parseDatePtr(s *string) (*time.Time, error) {
 		return nil, err
 	}
 	return &t, nil
-}
-
-func trimPtr(s *string) *string {
-	if s == nil {
-		return nil
-	}
-	v := strings.TrimSpace(*s)
-	return &v
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

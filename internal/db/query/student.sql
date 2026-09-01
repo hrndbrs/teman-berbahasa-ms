@@ -64,7 +64,7 @@ INSERT INTO students (
   sqlc.arg('id'),
   sqlc.arg('first_name'),
   sqlc.arg('last_name'),
-  sqlc.narg('email'),
+  sqlc.arg('email'),
   sqlc.narg('phone'),
   sqlc.narg('date_of_birth'),
   sqlc.narg('gender'),
